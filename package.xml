@@ -1,0 +1,12 @@
+<package>
+  <name>robomagellan</name>
+  <version>0.1.0</version>
+  <description>
+    Code for robomagellan, should probably come up with a better name.
+  </description>
+  <author>Michael Ferguson</author>
+  <maintainer email="mfergs7@gmail.com">Michael Ferguson</maintainer>
+  <license>GPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend> 
+</package>

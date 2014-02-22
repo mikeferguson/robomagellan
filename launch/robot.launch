@@ -3,12 +3,12 @@
   <!-- TODO: add ax-12s for camera, mx-28 for laser tilt -->
   <!-- TODO: load compass calibration -->
   <!-- temporary drivers, quite hacky -->
-  <node name="etherbotix" package="etherbotix" type="driver.py" >
+  <node name="etherbotix" pkg="etherbotix" type="driver.py" >
     <param name="publish_gps_strings" value="true" />
   </node>
 
   <!-- convert raw nmea strings to nmea_msgs/Fix -->
-  <node name="nmea_topic_driver" package="nmea_navsat_driver" type="nmea_topic_driver" />
+  <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" />
 
   <!-- TODO: setup laser scanner -->
 
@@ -17,5 +17,8 @@
   <!-- TODO: setup graft -->
 
   <!-- TODO: add navigation, yeah, that is totally one line -->
+
+  <!-- Teleop -->
+  <include file="$(find robomagellan)/launch/include/teleop.launch.xml" />
 
 </launch>

@@ -1,0 +1,12 @@
+<launch>
+
+  <!-- teleop node -->
+  <node name="teleop" pkg="robomagellan" type="simple_teleop.py" />
+  <node name="joy" pkg="joy" type="joy_node" />
+
+  <!-- mux between joystick and commands -->
+  <node name="cmd_vel_mux" pkg="topic_tools" type="mux" respawn="true" args="base_controller/command /cmd_vel /teleop/cmd_vel">
+    <remap from="mux" to="cmd_vel_mux" />
+  </node>
+
+</launch>

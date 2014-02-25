@@ -2,7 +2,7 @@
 
   <!-- Record raw odometry, imu, and gps data for localization tuning -->
   <node name="bag_creation" pkg="rosbag" type="record"
-        args="-O $(arg bagfile) odom imu_raw nmea_sentence" 
+        args="odom imu_raw nmea_sentence"
         output="screen" />
 
 </launch>

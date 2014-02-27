@@ -52,6 +52,6 @@ class Path:
 
     def _addPoint(self, lat, lon, alt):
         self.last_fix = [lat, lon, alt]
-        self.data["geometry"]["coordinates"].append( [lat, lon] )
+        self.data["geometry"]["coordinates"].append( [lon, lat] )
         self.messages += 1
 

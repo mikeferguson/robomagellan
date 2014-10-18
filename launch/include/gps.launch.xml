@@ -1,5 +1,8 @@
 <launch>
 
+  <!-- get raw GPS from board -->
+  <node name="gps_publisher" pkg="etherbotix" type="gps_publisher.py" />
+
   <!-- convert raw nmea strings to nmea_msgs/Fix -->
   <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" />
 

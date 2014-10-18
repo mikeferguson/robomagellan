@@ -1,10 +1,9 @@
 <launch>
 
-  <!-- TODO: add ax-12s for camera, mx-28 for laser tilt -->
   <!-- TODO: load compass calibration -->
-  <!-- temporary drivers, quite hacky -->
-  <node name="etherbotix" pkg="etherbotix" type="driver.py" >
-    <param name="publish_gps_strings" value="true" />
+
+  <node name="etherbotix" pkg="etherbotix" type="driver.py" output="screen">
+    <rosparam file="$(find robomagellan)/config/etherbotix.yaml" command="load" />
   </node>
 
   <!-- Convert GPS Data -->

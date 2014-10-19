@@ -2,7 +2,7 @@
 
   <!-- TODO: load compass calibration -->
 
-  <node name="etherbotix" pkg="etherbotix" type="driver.py" output="screen">
+  <node name="etherbotix" pkg="etherbotix_python" type="driver.py" output="screen">
     <rosparam file="$(find robomagellan)/config/etherbotix.yaml" command="load" />
   </node>
 

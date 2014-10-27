@@ -10,6 +10,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <run_depend>etherbotix_python</run_depend>
   <run_depend>nmea_msgs</run_depend>
   <run_depend>nmea_navsat_driver</run_depend>
 </package>

@@ -1,7 +1,7 @@
 <launch>
 
   <!-- teleop node -->
-  <node name="teleop" pkg="robomagellan" type="simple_teleop.py" />
+  <node name="teleop" pkg="etherbotix_python" type="simple_teleop.py" />
   <node name="joy" pkg="joy" type="joy_node" />
 
   <!-- mux between joystick and commands -->

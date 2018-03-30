@@ -1,12 +1,19 @@
-joints: {
-  # TODO: these are not fully defined
-  head_pan_joint: {type: dynamixel, id: 1},
-  head_tilt_joint: {type: dynamixel, id: 2},
-  laser_tilt_joint: {type: dynamixel, id: 3},
-}
 controllers: {
-  # Robomagellan Base: 4.7" Wheels = 0.3748m * pi, 64*100cpr
-  # base width doesn't really make physical sense, but works.
-  base_controller: {type: diff_controller, base_width: 0.109375, ticks_meter: 17073, Kp: 1.5},
+  base_controller: {
+    type: diff_controller,
+    base_width: 0.2667,
+    # Robomagellan Base: 4.7" Wheels = 0.3750m rollout, 64cpr*50:1
+    ticks_meter: 8532,
+    # Tuned on March 30, 2018
+    Kp: 70.0,
+    Kd: 0.0,
+    Ki: 5.0,
+    Kw: 600.0,
+    # TBD
+    accel_limit: 0.5,
+    # 200rpm * 0.375m rollout
+    max_velocity: 1.25,
+  },
 }
-imu: true
+# Using external UM-7 IMU
+imu: false

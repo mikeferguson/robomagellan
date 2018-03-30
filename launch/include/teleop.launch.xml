@@ -1,7 +1,10 @@
 <launch>
 
   <!-- teleop node -->
-  <node name="teleop" pkg="etherbotix_python" type="simple_teleop.py" />
+  <node name="teleop" pkg="etherbotix_python" type="simple_teleop.py" >
+    <param name="scale_linear" value="1.0" />
+    <param name="scale_angular" value="3.0" />
+  </node>
   <node name="joy" pkg="joy" type="joy_node" />
 
   <!-- mux between joystick and commands -->

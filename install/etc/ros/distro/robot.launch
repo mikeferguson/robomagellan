@@ -1,0 +1,5 @@
+<launch>
+
+  <include file="$(find robomagellan)/launch/robot.launch" />
+
+</launch>

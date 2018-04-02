@@ -3,7 +3,8 @@
   <!-- Mobile base -->
   <node name="etherbotix" pkg="etherbotix_python" type="driver.py" output="screen">
     <rosparam file="$(find robomagellan)/config/etherbotix.yaml" command="load" />
-    <remap from="cmd_vel" to="base_controller/command"/>
+    <remap from="cmd_vel" to="base_controller/command" />
+    <remap from="odom" to="base_controller/odom" />
   </node>
 
   <!-- Get raw GPS from board -->
@@ -11,9 +12,16 @@
   <!-- Convert raw nmea strings to nmea_msgs/Fix -->
   <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" />
 
+  <!-- IMU (and odometry fusion) -->
+  <include file="$(find robomagellan)/launch/um7.launch" />
+  <node name="ekf_odom" pkg="robot_localization" type="ekf_localization_node" >
+    <rosparam command="load" file="$(find robomagellan)/config/robot_localization.yaml" />
+    <remap from="odometry/filtered" to="odom" />
+  </node>
+
   <!-- TODO: setup camera -->
 
-  <!-- TODO: setup localization -->
+  <!-- TODO: setup global localization -->
 
   <!-- TODO: add navigation, yeah, that is totally one line -->
 

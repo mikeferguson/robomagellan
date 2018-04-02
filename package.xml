@@ -11,8 +11,12 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <run_depend>etherbotix_python</run_depend>
+  <run_depend>imu_filter_madgwick</run_depend>
+  <run_depend>imu_transformer</run_depend>
   <run_depend>nmea_msgs</run_depend>
   <run_depend>nmea_navsat_driver</run_depend>
+  <run_depend>robot_localization</run_depend>
   <run_depend>sixad</run_depend>
   <run_depend>teleop_twist_keyboard</run_depend>
+  <run_depend>um7</run_depend>
 </package>

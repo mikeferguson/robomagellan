@@ -13,6 +13,10 @@ controllers: {
     accel_limit: 0.5,
     # 200rpm * 0.375m rollout
     max_velocity: 1.25,
+    # robot_localization handles TF
+    publish_tf: false,
+    # tank drive sux
+    covariance_wz: 0.01
   },
 }
 # Using external UM-7 IMU

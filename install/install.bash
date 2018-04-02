@@ -15,7 +15,7 @@ fi
 mkdir -p /etc/ros/$distro
 echo "Pointing /etc/ros/$distro at $SCRIPT_DIR"
 echo -e "#!/usr/bin/env bash\nsource $SCRIPT_DIR/devel/setup.bash" > /etc/ros/$distro/setup.bash
-cp etc/ros/distro/robot.launch /etc/ros/$distro/robot.launch
+cp etc/ros/distro/robot.launch_ /etc/ros/$distro/robot.launch
 
 # Install upstart scripts
 cp etc/init/*.conf /etc/init/

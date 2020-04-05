@@ -1,6 +1,6 @@
 #!/bin/bash
 
-distro="indigo"
+distro="melodic"
 
 pkgpath="/src/robomagellan/install"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"

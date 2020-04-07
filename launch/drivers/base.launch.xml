@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node name="etherbotix" pkg="etherbotix_python" type="driver.py" output="screen">
+    <rosparam file="$(find robomagellan)/config/etherbotix.yaml" command="load" />
+    <remap from="cmd_vel" to="base_controller/command" />
+    <remap from="odom" to="base_controller/odom" />
+  </node>
+
+</launch>

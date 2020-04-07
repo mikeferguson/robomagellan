@@ -4,9 +4,13 @@
   <!-- Get raw GPS from etherbotix board -->
   <node name="gps_publisher" pkg="etherbotix_python" type="gps_publisher.py" >
     <param name="frame_id" value="base_link" />
+    <remap from="nmea_sentence" to="gps/nmea_sentence" />
   </node>
 
   <!-- Convert raw nmea strings to nmea_msgs/Fix -->
-  <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" />
+  <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" >
+    <remap from="nmea_sentence" to="gps/nmea_sentence" />
+    <remap from="fix" to="gps/fix" />
+  </node>
 
 </launch>

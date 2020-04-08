@@ -9,6 +9,6 @@
     <remap from="imu" to="imu_um7" />
   </node>
 
-  <node name="fake_broadcaster" pkg="tf" type="static_transform_publisher" args="0 0.0762 0.3302 1 0 0 0 base_link imu_link 10" />
+  <node name="imu_transform_publisher" pkg="tf2_ros" type="static_transform_publisher" args="0 0.0762 0.3302 1 0 0 0 base_link imu_link" />
 
 </launch>

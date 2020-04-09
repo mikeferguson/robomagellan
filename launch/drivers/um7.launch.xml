@@ -7,6 +7,7 @@
     <param name="use_magnetic_field_msg" value="true" />
     <param name="frame_id" value="imu_link" />
     <param name="tf_ned_to_enu" value="false" />
+    <param name="update_rate" value="100.0" />
     <remap from="imu" to="imu_um7" />
   </node>
 

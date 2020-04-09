@@ -1,28 +1,22 @@
 <?xml version="1.0"?>
 <launch>
 
-  <node name="imu_manager" pkg="nodelet" type="nodelet" args="manager" />
-
   <!-- Transforms imu data in imu_link frame to ENU data in base_link frame -->
-  <node name="imu_data_transformer" pkg="nodelet" type="nodelet" args="load imu_transformer/imu_transformer_nodelet imu_manager" >
-    <remap from="imu_in" to="imu_um7" />
+  <node name="imu_data_transformer" pkg="imu_transformer" type="imu_transformer_node" >
+    <remap from="imu_in/data" to="imu_um7/data" />
+    <remap from="imu_in/mag" to="imu_um7/mag" />
     <remap from="imu_out/data" to="imu/data_raw" />
     <remap from="imu_out/mag" to="imu/mag" />
     <param name="target_frame" value="base_link" />
   </node>
 
   <!-- Filter raw gyro, accel and mag data into a usable orientation -->
-  <node name="imu_filter" pkg="nodelet" type="nodelet" args="load imu_filter_madgwick/ImuFilterNodelet imu_manager" >
-    <rosparam>
-      use_mag: false
-      mag_bias_x: 0
-      mag_bias_y: 0
-      mag_bias_z: 0
-      orientation_stddev: 0.001
-      gain: 0.01
-      zeta: 0.001
-      publish_tf: false
-    </rosparam>
+  <node name="imu_filter" pkg="imu_filter_madgwick" type="imu_filter_node" >
+    <rosparam command="load" file="$(find robomagellan)/config/imu_calibration.yaml" />
+    <param name="orientation_stddev" value="0.001" />
+    <param name="gain" value="0.01" />
+    <param name="zeta" value="0.001" />
+    <param name="publish_tf" value="false" />
   </node>
 
 </launch>

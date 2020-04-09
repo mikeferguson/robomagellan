@@ -4,6 +4,7 @@
   <node name="um7_driver" pkg="um7" type="um7_driver" >
     <param name="port" type="string" value="/dev/ttyUSB0" />
     <param name="mag_updates" type="bool" value="false" />
+    <param name="use_magnetic_field_msg" value="true" />
     <param name="frame_id" value="imu_link" />
     <param name="tf_ned_to_enu" value="false" />
     <remap from="imu" to="imu_um7" />

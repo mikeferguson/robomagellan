@@ -11,13 +11,16 @@
   <!-- Local frame localization (base_link to odom) -->
   <include file="$(find robomagellan)/launch/compute/ekf_local.launch.xml" />
 
+  <!-- Global frame localization (map to odom) -->
+  <include file="$(find robomagellan)/launch/compute/ekf_global.launch.xml" />
+
   <!-- TODO: setup camera -->
 
   <!-- TODO: setup global localization -->
 
   <!-- TODO: add navigation, yeah, that is totally one line -->
 
-    <!-- Joystick Teleop -->
+  <!-- Joystick Teleop -->
   <include file="$(find robomagellan)/launch/drivers/teleop.launch.xml" />
 
 </launch>

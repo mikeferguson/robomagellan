@@ -1,9 +1,15 @@
 <launch>
 
+  <!-- If we want to run locally on recorded data -->
+  <arg name="offline_mode" default="false" />
+  <param name="use_sim_time" value="$(arg offline_mode)" />
+
   <!-- Drivers: mobile base, gps, um7 -->
-  <include file="$(find robomagellan)/launch/drivers/base.launch.xml" />
-  <include file="$(find robomagellan)/launch/drivers/gps.launch.xml" />
-  <include file="$(find robomagellan)/launch/drivers/um7.launch.xml" />
+  <group unless="$(arg offline_mode)" >
+    <include file="$(find robomagellan)/launch/drivers/base.launch.xml" />
+    <include file="$(find robomagellan)/launch/drivers/gps.launch.xml" />
+    <include file="$(find robomagellan)/launch/drivers/um7.launch.xml" />
+  </group>
 
   <!-- Process IMU into usable values -->
   <include file="$(find robomagellan)/launch/compute/imu.launch.xml" />
@@ -21,6 +27,8 @@
   <!-- TODO: add navigation, yeah, that is totally one line -->
 
   <!-- Joystick Teleop -->
-  <include file="$(find robomagellan)/launch/drivers/teleop.launch.xml" />
+  <group unless="$(arg offline_mode)" >
+    <include file="$(find robomagellan)/launch/drivers/teleop.launch.xml" />
+  </group>
 
 </launch>

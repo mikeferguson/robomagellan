@@ -1,9 +1,0 @@
-<launch>
-
-  <!-- Local frame localization -->
-  <node name="local_ekf_odom" pkg="robot_localization" type="ekf_localization_node" >
-    <rosparam command="load" file="$(find robomagellan)/config/local_ekf.yaml" />
-    <remap from="odometry/filtered" to="odom" />
-  </node>
-
-</launch>

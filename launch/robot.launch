@@ -9,7 +9,7 @@
   <include file="$(find robomagellan)/launch/compute/imu.launch.xml" />
 
   <!-- Local frame localization (base_link to odom) -->
-  <include file="$(find robomagellan)/launch/compute/local_ekf.launch.xml" />
+  <include file="$(find robomagellan)/launch/compute/ekf_local.launch.xml" />
 
   <!-- TODO: setup camera -->
 

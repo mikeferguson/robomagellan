@@ -1,0 +1,33 @@
+<launch>
+
+  <arg name="serial_no"           default="" />
+  <arg name="json_file_path"      default="" />
+  <arg name="camera"              default="camera" />
+
+  <group ns="$(arg camera)">
+    <include file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
+      <arg name="serial_no"                value="$(arg serial_no)" />
+      <arg name="json_file_path"           value="$(arg json_file_path)" />
+
+      <arg name="color_width"              value="848" />
+      <arg name="color_height"             value="480" />
+      <arg name="color_fps"                value="15" />
+
+      <arg name="depth_width"              value="848" />
+      <arg name="depth_height"             value="480" />
+      <arg name="depth_fps"                value="15" />
+
+      <!-- color, depth and cloud ONLY -->
+      <arg name="enable_color"             value="true" />
+      <arg name="enable_depth"             value="true" />
+      <arg name="enable_pointcloud"        value="true" />
+      <arg name="enable_sync"              value="true" />
+      <arg name="enable_infra1"            value="false" />
+      <arg name="enable_infra2"            value="false" />
+      <arg name="enable_fisheye"           value="false" />
+
+      <arg name="tf_prefix"                value="$(arg camera)" />
+    </include>
+  </group>
+
+</launch>

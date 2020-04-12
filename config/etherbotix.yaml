@@ -1,9 +1,17 @@
 controllers: {
   base_controller: {
     type: diff_controller,
+    # joint names
+    left_joint_name: lf_wheel_joint,
+    right_joint_name: rf_wheel_joint,
+    left_joint_mimic: lr_wheel_joint,
+    right_joint_mimic: rr_wheel_joint,
+    # Base width in meters
     base_width: 0.2667,
     # Robomagellan Base: 4.7" Wheels = 0.3750m rollout, 64cpr*50:1
     ticks_meter: 8532,
+    # Ticks per rollout: 64cpr * 50:1 gearing
+    ticks_rotation: 3200,
     # Tuned on March 30, 2018
     Kp: 70.0,
     Kd: 0.0,

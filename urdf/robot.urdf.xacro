@@ -1,0 +1,129 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robomagellan">
+
+  <xacro:include filename="$(find realsense2_description)/urdf/_d435.urdf.xacro" />
+
+  <material name="black">
+    <color rgba="0.1 0.1 0.1 1.0" />
+  </material>
+
+  <material name="grey">
+    <color rgba="0.7 0.7 0.7 1.0" />
+  </material>
+
+  <material name="orange">
+    <color rgba="0.8745 0.3529 0.04705 1.0" />
+  </material>
+
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://robomagellan/meshes/base_link.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="black" />
+      <origin xyz="0.1043 -0.12065 0.059944" rpy="1.57 0 3.14" />
+    </visual>
+  </link>
+
+  <xacro:macro name="wheel" params="name left front">
+    <joint name="${name}_wheel_joint" type="continuous">
+      <origin xyz="${front * 0.1143} ${left * 0.14615} 0.059944" rpy="0 0 0" />
+      <parent link="base_link" />
+      <child link="${name}_wheel_link" />
+      <axis xyz="0 1 0" />
+    </joint>
+    <link name="${name}_wheel_link">
+      <visual>
+        <geometry>
+          <mesh filename="package://robomagellan/meshes/wheel.stl" scale="0.001 0.001 0.001" />
+        </geometry>
+        <material name="black" />
+        <origin xyz="0 ${left * 0.0205} 0" rpy="${left * 1.57} 0 0" />
+      </visual>
+    </link>
+  </xacro:macro>
+
+  <xacro:wheel name="lf" left="1" front="1" />
+  <xacro:wheel name="lr" left="1" front="-1" />
+  <xacro:wheel name="rf" left="-1" front="1" />
+  <xacro:wheel name="rr" left="-1" front="-1" />
+
+  <joint name="cover_joint" type="fixed">
+    <origin xyz="-0 0 0.1575" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="cover_link" />
+  </joint>
+  <link name="cover_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://robomagellan/meshes/cover.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="orange" />
+      <origin xyz="0.1106 -0.12065 0.0" rpy="1.57 0 3.14" />
+    </visual>
+  </link>
+
+  <joint name="hoop_joint" type="fixed">
+    <origin xyz="0 0 0.34" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="hoop_link" />
+  </joint>
+  <link name="hoop_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://robomagellan/meshes/hoop.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="grey" />
+      <origin xyz="0.032 0.12065 -0.156" rpy="1.57 0 3.14" />
+    </visual>
+  </link>
+
+  <joint name="camera_mount_joint" type="fixed">
+    <origin xyz="0 0 0.34" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="camera_mount" />
+  </joint>
+  <link name="camera_mount">
+    <visual>
+      <geometry>
+        <mesh filename="package://robomagellan/meshes/camera_mount.stl" scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="black" />
+      <origin xyz="0.0325 -0.03 0" rpy="0 1.57 1.57" />
+    </visual>
+  </link>
+
+  <!-- Camera -->
+  <xacro:sensor_d435 parent="camera_mount">
+    <origin xyz="0.038 0 -0.022" rpy="0 0.349 0"/>
+  </xacro:sensor_d435>
+
+  <joint name="imu_joint" type="fixed">
+    <origin xyz="0 0.0762 0.004" rpy="0 0 0" />
+    <parent link="hoop_link" />
+    <child link="imu_link" />
+  </joint>
+  <link name="imu_link">
+    <visual>
+      <geometry>
+        <box size="0.02 0.02 0.008" />
+      </geometry>
+      <material name="black" />
+    </visual>
+  </link>
+
+  <joint name="gps_joint" type="fixed">
+    <origin xyz="0 -0.0762 0.005" rpy="0 0 0" />
+    <parent link="hoop_link" />
+    <child link="gps_link" />
+  </joint>
+  <link name="gps_link">
+    <visual>
+      <geometry>
+        <box size="0.022 0.018 0.01" />
+      </geometry>
+      <material name="orange" />
+    </visual>
+  </link>
+
+</robot>

@@ -4,6 +4,10 @@
   <node name="bag_creation" pkg="rosbag" type="record"
         args="-a" output="screen" />
 
+  <!-- URDF and robot model -->
+  <param name="robot_description" command="rosrun xacro xacro '$(find robomagellan)/urdf/robot.urdf.xacro' use_nominal_extrinsics:=false" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
   <!-- Drivers: mobile base, gps, um7 -->
   <include file="$(find robomagellan)/launch/drivers/base.launch.xml" />
   <include file="$(find robomagellan)/launch/drivers/gps.launch.xml" />

@@ -4,16 +4,16 @@
   <arg name="offline_mode" default="false" />
   <param name="use_sim_time" value="$(arg offline_mode)" />
 
+  <!-- URDF and robot model -->
+  <param name="robot_description" command="rosrun xacro xacro '$(find robomagellan)/urdf/robot.urdf.xacro' use_nominal_extrinsics:=false" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
   <!-- Drivers: mobile base, gps, um7 -->
   <group unless="$(arg offline_mode)" >
     <include file="$(find robomagellan)/launch/drivers/base.launch.xml" />
     <include file="$(find robomagellan)/launch/drivers/gps.launch.xml" />
     <include file="$(find robomagellan)/launch/drivers/um7.launch.xml" />
   </group>
-
-  <!-- URDF and robot model -->
-  <param name="robot_description" command="rosrun xacro xacro '$(find robomagellan)/urdf/robot.urdf.xacro' use_nominal_extrinsics:=false" />
-  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
   <!-- Process IMU into usable values -->
   <include file="$(find robomagellan)/launch/compute/imu.launch.xml" />

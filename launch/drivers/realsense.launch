@@ -11,11 +11,11 @@
 
       <arg name="color_width"              value="848" />
       <arg name="color_height"             value="480" />
-      <arg name="color_fps"                value="15" />
+      <arg name="color_fps"                value="30" />
 
       <arg name="depth_width"              value="848" />
       <arg name="depth_height"             value="480" />
-      <arg name="depth_fps"                value="15" />
+      <arg name="depth_fps"                value="30" />
 
       <!-- color, depth and cloud ONLY -->
       <arg name="enable_color"             value="true" />

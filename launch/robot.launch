@@ -13,6 +13,7 @@
     <include file="$(find robomagellan)/launch/drivers/base.launch.xml" />
     <include file="$(find robomagellan)/launch/drivers/gps.launch.xml" />
     <include file="$(find robomagellan)/launch/drivers/um7.launch.xml" />
+    <include file="$(find robomagellan)/launch/drivers/realsense.launch" />
   </group>
 
   <!-- Process IMU into usable values -->
@@ -23,8 +24,6 @@
 
   <!-- Global frame localization (map to odom) -->
   <include file="$(find robomagellan)/launch/compute/ekf_global.launch.xml" />
-
-  <!-- TODO: setup camera -->
 
   <!-- TODO: setup global localization -->
 

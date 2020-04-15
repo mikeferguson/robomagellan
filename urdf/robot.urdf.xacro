@@ -99,7 +99,7 @@
   </xacro:sensor_d435>
 
   <joint name="imu_joint" type="fixed">
-    <origin xyz="0 0.0762 0.004" rpy="0 0 0" />
+    <origin xyz="0 0.0762 0.004" rpy="3.14 0.0 0.0" />
     <parent link="hoop_link" />
     <child link="imu_link" />
   </joint>

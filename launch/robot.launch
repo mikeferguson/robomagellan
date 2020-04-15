@@ -16,6 +16,9 @@
     <include file="$(find robomagellan)/launch/drivers/realsense.launch" />
   </group>
 
+  <!-- Process GPS sentences into Fix -->
+  <include file="$(find robomagellan)/launch/compute/gps.launch.xml" />
+
   <!-- Process IMU into usable values -->
   <include file="$(find robomagellan)/launch/compute/imu.launch.xml" />
 

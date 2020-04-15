@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Convert raw nmea strings to nmea_msgs/Fix -->
+  <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" >
+    <remap from="nmea_sentence" to="gps/nmea_sentence" />
+    <remap from="fix" to="gps/fix" />
+  </node>
+
+</launch>

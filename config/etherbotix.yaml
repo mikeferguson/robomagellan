@@ -12,15 +12,15 @@ controllers: {
     ticks_meter: 8532,
     # Ticks per rollout: 64cpr * 50:1 gearing
     ticks_rotation: 3200,
-    # Tuned on March 30, 2018
-    Kp: 70.0,
+    # Tuned on April 17, 2020
+    Kp: 10.0,
     Kd: 0.0,
-    Ki: 5.0,
-    Kw: 600.0,
+    Ki: 1.5,
+    Kw: 950.0,
     # TBD
-    accel_limit: 0.5,
+    accel_limit: 1.0,
     # 200rpm * 0.375m rollout
-    max_velocity: 1.25,
+    max_velocity: 1.0,
     # robot_localization handles TF
     publish_tf: false,
     # tank drive sux

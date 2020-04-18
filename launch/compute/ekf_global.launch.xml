@@ -11,8 +11,7 @@
     <!-- Correction to make IMU read 0 when facing east -->
     <param name="yaw_offset" value="0" />
     <!-- Magnetic Declination for your location - see http://www.ngdc.noaa.gov/geomag-web -->
-    <param name="magnetic_declination_radians" value="0.0" />
-    <!--<param name="magnetic_declination_radians" value="0.2516183" />-->
+    <param name="magnetic_declination_radians" value="0.2516183" />
     <!-- Pretend world is flat -->
     <param name="zero_altitude" value="true" />
     <!-- Publish a faster GPS output -->

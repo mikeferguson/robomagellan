@@ -7,20 +7,22 @@ two_d_mode: true
 frequency: 50
 
 odom0: base_controller/odom
-odom0_config: [false, false, false,
-               false, false, false,
-               true,  true,  true,
-               false, false, true,
-               false, false, false]
+odom0_config: [false, false, false,   # x,   y,   z
+               false, false, false,   # r,   p,   w (yaw)
+               true,  true,  true,    # dx,  dy,  dz
+               false, false, true,    # dr,  dp,  dw
+               false, false, false]   # ddx, ddy, ddz
 odom0_differential: false
+odom0_nodelay: true
 odom0_queue_size: 10
 
 imu0: imu/data
-imu0_config: [false, false, false,
-              false, false, false,
-              false, false, false,
-              true,  true,  true,
-              false, false, false]
+imu0_config: [false, false, false,   # x,   y,   z
+              false, false, false,   # r,   p,   w (yaw)
+              false, false, false,   # dx,  dy,  dz
+              true,  true,  true,    # dr,  dp,  dw
+              false, false, false]   # ddx, ddy, ddz
 imu0_differential: true
+imu0_nodelay: true
 imu0_queue_size: 10
 imu0_remove_gravitational_acceleration: true

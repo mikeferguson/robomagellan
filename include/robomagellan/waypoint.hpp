@@ -19,6 +19,8 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #ifndef ROBOMAGELLAN_WAYPOINT_HPP
 #define ROBOMAGELLAN_WAYPOINT_HPP
 
+#include <memory>
+
 struct Waypoint
 {
   // Coordinates in global frame
@@ -30,5 +32,7 @@ struct Waypoint
   double y;
   double heading;
 };
+
+using WaypointPtr = std::shared_ptr<Waypoint>;
 
 #endif  // ROBOMAGELLAN_WAYPOINT_HPP

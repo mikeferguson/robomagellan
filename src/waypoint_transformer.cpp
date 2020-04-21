@@ -38,14 +38,14 @@ bool WaypointTransformer::transform(Path& path)
   // Transform into map frame
   for (auto waypoint : path)
   {
-    req.ll_point.latitude = waypoint.latitude;
-    req.ll_point.longitude = waypoint.longitude;
+    req.ll_point.latitude = waypoint->latitude;
+    req.ll_point.longitude = waypoint->longitude;
     req.ll_point.altitude = 0.0;
 
     client_.call(req, res);
 
-    waypoint.x = res.map_point.x;
-    waypoint.y = res.map_point.y;
+    waypoint->x = res.map_point.x;
+    waypoint->y = res.map_point.y;
   }
 
   // Set the headings of each point

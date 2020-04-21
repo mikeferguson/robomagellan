@@ -20,11 +20,11 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <gtest/gtest.h>
 #include <robomagellan/path.hpp>
 
-Waypoint makeWaypoint(double map_x, double map_y)
+WaypointPtr makeWaypoint(double map_x, double map_y)
 {
-  Waypoint point;
-  point.x = map_x;
-  point.y = map_y;
+  WaypointPtr point(new Waypoint());
+  point->x = map_x;
+  point->y = map_y;
   return point;
 }
 
@@ -43,11 +43,11 @@ TEST(PathTests, update_headings)
 
   EXPECT_TRUE(setHeadings(path));
 
-  EXPECT_DOUBLE_EQ(path[0].heading, 0.0);
-  EXPECT_DOUBLE_EQ(path[1].heading, M_PI / 4.0);
-  EXPECT_DOUBLE_EQ(path[2].heading, M_PI / 2.0);
-  EXPECT_DOUBLE_EQ(path[3].heading, M_PI);
-  EXPECT_DOUBLE_EQ(path[4].heading, M_PI);
+  EXPECT_DOUBLE_EQ(path[0]->heading, 0.0);
+  EXPECT_DOUBLE_EQ(path[1]->heading, M_PI / 4.0);
+  EXPECT_DOUBLE_EQ(path[2]->heading, M_PI / 2.0);
+  EXPECT_DOUBLE_EQ(path[3]->heading, M_PI);
+  EXPECT_DOUBLE_EQ(path[4]->heading, M_PI);
 }
 
 int main(int argc, char** argv)

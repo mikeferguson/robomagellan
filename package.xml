@@ -1,4 +1,4 @@
-<package>
+<package format="2">
   <name>robomagellan</name>
   <version>0.1.0</version>
   <description>
@@ -10,17 +10,16 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>robot_localization</build_depend>
-  <build_depend>roscpp</build_depend>
+  <!-- dependencies for building navigation code -->
+  <depend>robot_localization</depend>
+  <depend>roscpp</depend>
 
-  <run_depend>etherbotix_python</run_depend>
-  <run_depend>geodesy</run_depend>
-  <run_depend>imu_filter_madgwick</run_depend>
-  <run_depend>imu_transformer</run_depend>
-  <run_depend>nmea_msgs</run_depend>
-  <run_depend>nmea_navsat_driver</run_depend>
-  <run_depend>robot_localization</run_depend>
-  <run_depend>roscpp</run_depend>
-  <run_depend>teleop_twist_keyboard</run_depend>
-  <run_depend>um7</run_depend>
+  <!-- dependencies for robot startup -->
+  <exec_depend>geodesy</exec_depend>
+  <exec_depend>imu_filter_madgwick</exec_depend>
+  <exec_depend>imu_transformer</exec_depend>
+  <exec_depend>nmea_msgs</exec_depend>
+  <exec_depend>nmea_navsat_driver</exec_depend>
+  <exec_depend>teleop_twist_keyboard</exec_depend>
+  <exec_depend>um7</exec_depend>
 </package>

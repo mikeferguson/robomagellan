@@ -23,7 +23,11 @@ Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <vector>
 #include <robomagellan/waypoint.hpp>
 
-using Path = std::vector<WaypointPtr>;
+struct Path
+{
+  std::string frame_id;
+  std::vector<WaypointPtr> waypoints;
+};
 
 inline double getHeading(double x1, double y1, double x2, double y2)
 {
@@ -34,7 +38,7 @@ inline double getHeading(double x1, double y1, double x2, double y2)
 
 inline bool setHeadings(Path& path)
 {
-	if (path.size() < 2)
+	if (path.waypoints.size() < 2)
 	{
 		// Not enough points
 		return false;
@@ -42,17 +46,17 @@ inline bool setHeadings(Path& path)
 
   // Set heading of each waypoint
   double heading;
-  for (size_t i = 0; i < path.size() - 1; ++i)
+  for (size_t i = 0; i < path.waypoints.size() - 1; ++i)
   {
-    heading = getHeading(path[i]->x,
-                         path[i]->y,
-                         path[i+1]->x,
-                         path[i+1]->y);
-    path[i]->heading = heading;
+    heading = getHeading(path.waypoints[i]->x,
+                         path.waypoints[i]->y,
+                         path.waypoints[i+1]->x,
+                         path.waypoints[i+1]->y);
+    path.waypoints[i]->heading = heading;
   }
 
   // Set last point heading
-  path.back()->heading = heading;
+  path.waypoints.back()->heading = heading;
 
   return true;
 }

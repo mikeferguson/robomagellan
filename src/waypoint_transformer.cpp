@@ -36,7 +36,7 @@ bool WaypointTransformer::transform(Path& path)
   robot_localization::FromLL::Response res;
 
   // Transform into map frame
-  for (auto waypoint : path)
+  for (auto waypoint : path.waypoints)
   {
     req.ll_point.latitude = waypoint->latitude;
     req.ll_point.longitude = waypoint->longitude;

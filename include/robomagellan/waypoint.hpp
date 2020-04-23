@@ -27,12 +27,29 @@ struct Waypoint
   double latitude;
   double longitude;
 
-  // Coordinates in map frame
+  // Coordinates in frame_id as specified in path
   double x;
   double y;
   double heading;
 };
 
 using WaypointPtr = std::shared_ptr<Waypoint>;
+
+inline WaypointPtr waypointFromGPS(double latitude, double longitude)
+{
+  WaypointPtr point(new Waypoint());
+  point->latitude = latitude;
+  point->longitude = longitude;
+  return point;
+}
+
+inline WaypointPtr waypointFromPose(double map_x, double map_y, double heading)
+{
+  WaypointPtr point(new Waypoint());
+  point->x = map_x;
+  point->y = map_y;
+  point->heading = heading;
+  return point;
+}
 
 #endif  // ROBOMAGELLAN_WAYPOINT_HPP

@@ -7,7 +7,9 @@ endif()
 
 find_package(catkin REQUIRED
   COMPONENTS
+    actionlib_msgs
     dynamic_reconfigure
+    geographic_msgs
     geometry_msgs
     nav_core
     robot_localization
@@ -22,10 +24,23 @@ generate_dynamic_reconfigure_options(
   cfg/TrajectoryRollout.cfg
 )
 
+add_action_files(
+  DIRECTORY action
+  FILES FollowWaypoints.action
+)
+
+generate_messages(
+  DEPENDENCIES
+    actionlib_msgs
+    geographic_msgs
+    geometry_msgs
+)
+
 catkin_package(
   INCLUDE_DIRS
     include
   CATKIN_DEPENDS
+    actionlib_msgs
     roscpp
     tf2_ros
 )

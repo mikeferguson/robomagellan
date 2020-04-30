@@ -3,6 +3,14 @@
   <!-- Global frame localization -->
   <node name="ekf_global_odom" pkg="robot_localization" type="ekf_localization_node" >
     <rosparam command="load" file="$(find robomagellan)/config/ekf_global.yaml" />
+
+    <!-- Subscriptions (in yaml)
+      odom0: odometry/gps
+      odom1: base_controller/odom
+      imu0:  imu/data
+    -->
+
+    <!-- Publications -->
     <remap from="odometry/filtered" to="odometry/global" />
   </node>
 

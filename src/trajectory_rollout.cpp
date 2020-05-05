@@ -61,7 +61,7 @@ double getPathDistance(const Path& path, double x, double y)
 
   for (auto pt : path.waypoints)
   {
-    double d = std::sqrt(pow(pt->x - x, 2) + pow(pt->y - y, 2));
+    double d = std::hypot(pt->x - x, pt->y - y);
     if (d < d1)
     {
       d2 = d1;
@@ -230,8 +230,8 @@ double TrajectoryRollout::evaluate(const Path& path,
   }
 
   // Evaluate path and goal distance for final point
-  double goal_distance = std::sqrt(pow(x - path.waypoints.back()->x, 2.0) +
-                                   pow(y - path.waypoints.back()->y, 2.0));
+  double goal_distance = std::hypot(x - path.waypoints.back()->x,
+                                    y - path.waypoints.back()->y);
   double path_distance = getPathDistance(path, x, y);
   cost += goal_scale_ * goal_distance +
           path_scale_ * path_distance;

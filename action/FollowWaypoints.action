@@ -1,6 +1,0 @@
-# The path to follow
-geographic_msgs/GeoPose[] poses
----
-bool success
----
-geometry_msgs/PoseStamped robot_pose

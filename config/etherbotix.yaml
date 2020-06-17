@@ -1,31 +1,46 @@
-controllers: {
-  base_controller: {
-    type: diff_controller,
-    # joint names
-    left_joint_name: lf_wheel_joint,
-    right_joint_name: rf_wheel_joint,
-    left_joint_mimic: lr_wheel_joint,
-    right_joint_mimic: rr_wheel_joint,
-    # Base width in meters
-    base_width: 0.2667,
-    # Robomagellan Base: 4.7" Wheels = 0.3750m rollout, 64cpr*50:1
-    ticks_meter: 8532,
-    # Ticks per rollout: 64cpr * 50:1 gearing
-    ticks_rotation: 3200,
+etherbotix:
+  ros__parameters:
+    default_controllers:
+      - "base_controller"
+      - "lr_wheel_mimic"
+      - "rr_wheel_mimic"
+    base_controller:
+      type: "robot_controllers/DiffDriveBaseController"
+      max_velocity_x: 0.5
+      max_acceleration_x: 1.0
+      # Base width in meters
+      track_width: 0.2667
+      # 4.7" wheels = 0.3750m rollout = 2.66 rotations / meter
+      radians_per_meter: 16.753
+      # hold position
+      moving_threshold: -0.01
+      rotating_threshold: -0.01
+      # autostart to get odom
+      autostart: true
+      # name of joints
+      l_wheel_joints:
+        - "lf_wheel_joint"
+      r_wheel_joints:
+        - "rf_wheel_joint"
+    lr_wheel_mimic:
+      type: "robot_controllers/ScaledMimicController"
+      mimic_joint: "lf_wheel_joint"
+      controlled_joint: "lr_wheel_joint"
+      autostart: true
+    rr_wheel_mimic:
+      type: "robot_controllers/ScaledMimicController"
+      mimic_joint: "rf_wheel_joint"
+      controlled_joint: "rr_wheel_joint"
+      autostart: true
+    # 64cpr*50:1
+    ticks_per_radian: 509.3
+    # Using external UM-7 IMU
+    imu: false
     # Tuned on April 17, 2020
-    Kp: 10.0,
-    Kd: 0.0,
-    Ki: 1.5,
-    Kw: 950.0,
-    # TBD
-    accel_limit: 1.0,
-    # 200rpm * 0.375m rollout
-    max_velocity: 1.0,
-    # robot_localization handles TF
-    publish_tf: false,
-    # tank drive sux
-    covariance_wz: 0.01
-  },
-}
-# Using external UM-7 IMU
-imu: false
+    motor_kp: 10.0
+    motor_kd: 0.0
+    motor_ki: 1.5
+    motor_kw: 950.0
+    # Name for joints
+    l_motor_name: "lf_wheel_joint"
+    r_motor_name: "rf_wheel_joint"

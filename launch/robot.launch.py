@@ -97,6 +97,13 @@ def generate_launch_description():
             node_executable='gps_publisher_node',
             parameters=[{'frame_id': 'base_link'}],
             remappings=[('nmea_sentence', 'gps/nmea_sentence')],
+            condition=UnlessCondition(LaunchConfiguration('offline')),
+        ),
+
+        # Joystick Teleop
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('drivers', 'teleop.launch.py')]),
+            condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
     ])
 

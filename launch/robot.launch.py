@@ -46,12 +46,11 @@ from launch_ros.actions import Node
 
 import xacro
 
-def launch_file(folder, name):
+def launch_file(name):
     # Get the path to an included launch file
     return os.path.join(
         get_package_share_directory('robomagellan'),
         'launch',
-        folder,
         name
     )
 
@@ -60,13 +59,6 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('robomagellan')
     xacro_path = os.path.join(bringup_dir, 'urdf', 'robot.urdf.xacro')
     urdf = xacro.process(xacro_path)
-
-    # Load the driver config
-    driver_config = os.path.join(
-        get_package_share_directory('robomagellan'),
-        'config', 'etherbotix.yaml'
-    )
-
 
     return LaunchDescription([
         # Arguments first
@@ -81,35 +73,16 @@ def generate_launch_description():
         ),
 
         # Drivers
-        Node(
-            name='etherbotix',
-            package='etherbotix',
-            node_executable='etherbotix_driver',
-            parameters=[{'robot_description': urdf},
-                        driver_config],
-            remappings=[('odom', 'base_controller/odom')],
-            output='screen',
-            condition=UnlessCondition(LaunchConfiguration('offline')),
-        ),
-        Node(
-            name='gps_publisher',
-            package='etherbotix',
-            node_executable='gps_publisher_node',
-            parameters=[{'frame_id': 'base_link'}],
-            remappings=[('nmea_sentence', 'gps/nmea_sentence')],
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('drivers.launch.py')]),
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
 
-        # Joystick Teleop
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([launch_file('drivers', 'teleop.launch.py')]),
-            condition=UnlessCondition(LaunchConfiguration('offline')),
-        ),
     ])
 
 
 def main(argv=sys.argv[1:]):
-    """Run lifecycle nodes via launch."""
+    """Run nodes via launch."""
     ld = generate_launch_description()
     ls = LaunchService(argv=argv)
     ls.include_launch_description(ld)

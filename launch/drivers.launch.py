@@ -33,14 +33,47 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import os
-import sys
 
-from launch import LaunchDescription, LaunchService
+from ament_index_python.packages import get_package_share_directory
+
+from launch import LaunchDescription
 from launch_ros.actions import Node
 
+import xacro
+
 def generate_launch_description():
+    # Load the URDF into a parameter
+    bringup_dir = get_package_share_directory('robomagellan')
+    xacro_path = os.path.join(bringup_dir, 'urdf', 'robot.urdf.xacro')
+    urdf = xacro.process(xacro_path)
+
+    # Load the driver config
+    driver_config = os.path.join(
+        get_package_share_directory('robomagellan'),
+        'config', 'etherbotix.yaml'
+    )
 
     return LaunchDescription([
+        # Etherbotix drivers
+        Node(
+            name='etherbotix',
+            package='etherbotix',
+            node_executable='etherbotix_driver',
+            parameters=[{'robot_description': urdf},
+                        driver_config],
+            remappings=[('odom', 'base_controller/odom')],
+            output='screen',
+        ),
+
+        # GPS publisher
+        Node(
+            name='gps_publisher',
+            package='etherbotix',
+            node_executable='gps_publisher_node',
+            parameters=[{'frame_id': 'base_link'}],
+            remappings=[('nmea_sentence', 'gps/nmea_sentence')],
+        ),
+
         # TODO: add mux between nav and joystick
         Node(
             name='joy',
@@ -48,6 +81,8 @@ def generate_launch_description():
             node_executable='joy_node',
             parameters=[{'autorepeat_rate': 5.0}, ],
         ),
+
+        # Teleop
         Node(
             name='teleop',
             package='teleop_twist_joy',
@@ -61,15 +96,3 @@ def generate_launch_description():
             output='screen',
         ),
     ])
-
-
-def main(argv=sys.argv[1:]):
-    """Run lifecycle nodes via launch."""
-    ld = generate_launch_description()
-    ls = LaunchService(argv=argv)
-    ls.include_launch_description(ld)
-    return ls.run()
-
-
-if __name__ == '__main__':
-    main()

@@ -29,6 +29,7 @@
   <exec_depend>nmea_navsat_driver</exec_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
   <exec_depend>um7</exec_depend>
+  <exec_depend>xacro</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

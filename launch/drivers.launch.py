@@ -82,7 +82,21 @@ def generate_launch_description():
             remappings=[('nmea_sentence', 'gps/nmea_sentence')],
         ),
 
-        # TODO: add UM7
+        # UM7 IMU
+        Node(
+            name='um7_driver',
+            package='um7',
+            node_executable='um7_node',
+            parameters=[{'mag_updates': False,
+                         'tf_ned_to_enu': False,
+                         'update_rate': 100}],
+            # This could be cleaned up when wildcards are implemented
+            #   see https://github.com/ros2/rcl/issues/232
+            remappings=[('imu/data', 'imu_um7/data'),
+                        ('imu/mag', 'imu_um7/mag'),
+                        ('imu/rpy', 'imu_um7/rpy'),
+                        ('imu/temperature', 'imu_um7/temperature')]
+        ),
 
         # TODO: add realsense driver
 

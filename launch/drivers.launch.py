@@ -54,6 +54,14 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        # Robot state publisher
+        Node(
+            name='robot_state_publisher',
+            package='robot_state_publisher',
+            node_executable='robot_state_publisher',
+            parameters=[{'robot_description': urdf}],
+        ),
+
         # Etherbotix drivers
         Node(
             name='etherbotix',
@@ -73,6 +81,10 @@ def generate_launch_description():
             parameters=[{'frame_id': 'base_link'}],
             remappings=[('nmea_sentence', 'gps/nmea_sentence')],
         ),
+
+        # TODO: add UM7
+
+        # TODO: add realsense driver
 
         # TODO: add mux between nav and joystick
         Node(

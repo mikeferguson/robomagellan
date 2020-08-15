@@ -44,8 +44,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-import xacro
-
 def launch_file(name):
     # Get the path to an included launch file
     return os.path.join(
@@ -55,28 +53,32 @@ def launch_file(name):
     )
 
 def generate_launch_description():
-    # Load the URDF into a parameter
-    bringup_dir = get_package_share_directory('robomagellan')
-    xacro_path = os.path.join(bringup_dir, 'urdf', 'robot.urdf.xacro')
-    urdf = xacro.process(xacro_path)
 
     return LaunchDescription([
         # Arguments first
         DeclareLaunchArgument('offline', default_value='false'),
-
-        # Robot state publisher
-        Node(
-            name='robot_state_publisher',
-            package='robot_state_publisher',
-            node_executable='robot_state_publisher',
-            parameters=[{'robot_description': urdf}],
-        ),
 
         # Drivers
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([launch_file('drivers.launch.py')]),
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
+
+        # TODO: Process GPS sentences into Fix
+        #<include file="$(find robomagellan)/launch/compute/gps.launch.xml" />
+
+        # TODO: Process IMU into usable values
+        #<include file="$(find robomagellan)/launch/compute/imu.launch.xml" />
+
+        # TODO: Local frame localization (base_link to odom)
+        #<include file="$(find robomagellan)/launch/compute/ekf_local.launch.xml" />
+
+        # TODO: Global frame localization (map to odom)
+        #<include file="$(find robomagellan)/launch/compute/ekf_global.launch.xml" />
+
+        # TODO: Setup global localization
+
+        # TODO: add navigation, yeah, that is totally one line
 
     ])
 

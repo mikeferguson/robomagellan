@@ -36,3 +36,7 @@ Raw data bagfile for analysis and development:
 ```
 ros2 bag record /base_controller/odom /gps/nmea_sentence /imu_um7/data /imu_um7/mag /imu_um7/rpy /joint_states /livox/imu /livox/lidar /robot_description /tf /tf_static
 ```
+
+## Hardware Details
+
+ * Switch: TP-Link Litewave 5. Runs off 5V, max 600mA.

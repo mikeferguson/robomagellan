@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2020, Michael Ferguson
+# Copyright (c) 2020-2023, Michael Ferguson
 # All rights reserved.
 #
 # Software License Agreement (BSD License 2.0)
@@ -53,12 +53,17 @@ def generate_launch_description():
         'config', 'etherbotix.yaml'
     )
 
+    livox_config = os.path.join(
+        get_package_share_directory('robomagellan'),
+        'config', 'mid360.json'
+    )
+
     return LaunchDescription([
         # Robot state publisher
         Node(
             name='robot_state_publisher',
             package='robot_state_publisher',
-            node_executable='robot_state_publisher',
+            executable='robot_state_publisher',
             parameters=[{'robot_description': urdf}],
         ),
 
@@ -66,7 +71,7 @@ def generate_launch_description():
         Node(
             name='etherbotix',
             package='etherbotix',
-            node_executable='etherbotix_driver',
+            executable='etherbotix_driver',
             parameters=[{'robot_description': urdf},
                         driver_config],
             remappings=[('odom', 'base_controller/odom')],
@@ -77,7 +82,7 @@ def generate_launch_description():
         Node(
             name='gps_publisher',
             package='etherbotix',
-            node_executable='gps_publisher_node',
+            executable='gps_publisher_node',
             parameters=[{'frame_id': 'base_link'}],
             remappings=[('nmea_sentence', 'gps/nmea_sentence')],
         ),
@@ -86,7 +91,7 @@ def generate_launch_description():
         Node(
             name='um7_driver',
             package='um7',
-            node_executable='um7_node',
+            executable='um7_node',
             parameters=[{'mag_updates': False,
                          'tf_ned_to_enu': False,
                          'update_rate': 100}],
@@ -98,13 +103,20 @@ def generate_launch_description():
                         ('imu/temperature', 'imu_um7/temperature')]
         ),
 
-        # TODO: add realsense driver
+        # Livox MID-360 Laser
+        Node(
+            name='livox',
+            package='livox_ros_driver2',
+            executable='livox_ros_driver2_node',
+            output='screen',
+            parameters=[{"user_config_path": livox_config}]
+        )
 
         # TODO: add mux between nav and joystick
         Node(
             name='joy',
             package='joy',
-            node_executable='joy_node',
+            executable='joy_node',
             parameters=[{'autorepeat_rate': 5.0}, ],
         ),
 
@@ -112,7 +124,7 @@ def generate_launch_description():
         Node(
             name='teleop',
             package='teleop_twist_joy',
-            node_executable='teleop_node',
+            executable='teleop_node',
             parameters=[{'enable_button': 4,
                          'axis_linear': 4,
                          'scale_linear': 1.0,

@@ -40,3 +40,4 @@ ros2 bag record /base_controller/odom /gps/nmea_sentence /imu_um7/data /imu_um7/
 ## Hardware Details
 
  * Switch: TP-Link Litewave 5. Runs off 5V, max 600mA.
+ * Lidar: Livox MID-360, 9-27V, 6.5W

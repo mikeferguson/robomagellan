@@ -109,8 +109,9 @@ def generate_launch_description():
             package='livox_ros_driver2',
             executable='livox_ros_driver2_node',
             output='screen',
-            parameters=[{"user_config_path": livox_config}]
-        )
+            parameters=[{'user_config_path': livox_config,
+                         'frame_id': 'livox_frame'}]
+        ),
 
         # TODO: add mux between nav and joystick
         Node(

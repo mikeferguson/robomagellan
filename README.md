@@ -24,6 +24,7 @@ sensor for obstacle avoidance.
    * https://github.com/mikeferguson/robot_controllers
    * https://github.com/mikeferguson/um7
    * https://github.com/mikeferguson/serial
+   * https://github.com/ros-perception/imu_pipeline
  * The livox is not yet in the URDF (intentionally, since I lack a calibration routine). This
    is a halfway decent stand in:
    ```

@@ -2,6 +2,14 @@
 
 This is a work in progress.
 
+The first generation of this robot was actually laser cut at Willow Garage in 2012 and used a
+4WD differential drive base. While this allowed easy carrying of a fairly large 12V sealed
+lead acid battery and easy upgrades over time, the robot ground speed was too slow to
+really be competitive. Numerous sensor packages evolved over time on this platform.
+
+The second generation robot is based on a 1/10th scale RC stadium truck and uses a Livox MID-360
+sensor for obstacle avoidance.
+
 ## Setup (ROS 2 Iron, 22.04)
 
  * Setup Livox Time Synchronization. The Livox supports
@@ -39,5 +47,10 @@ ros2 bag record /base_controller/odom /gps/nmea_sentence /imu_um7/data /imu_um7/
 
 ## Hardware Details
 
- * Switch: TP-Link Litewave 5. Runs off 5V, max 600mA.
- * Lidar: Livox MID-360, 9-27V, 6.5W
+ * Computer: Intel NUC, 19V @ 60W.
+ * Switch: TP-Link Litewave 5.  5V @ 3.7W.
+ * Lidar: Livox MID-360, 12V (9-27V) @ 6.5W. Comms over Ethernet.
+ * Camera: TBD.
+ * GPS: TBD. Comms over USB.
+ * IMU: UM7. Comms over USB.
+ * Custom integrated power and control board. Comms over Ethernet.

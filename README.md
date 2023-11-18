@@ -54,3 +54,4 @@ ros2 bag record /base_controller/odom /gps/nmea_sentence /imu_um7/data /imu_um7/
  * GPS: TBD. Comms over USB.
  * IMU: UM7. Comms over USB.
  * Custom integrated power and control board. Comms over Ethernet.
+ * Wifi Access Point: GL-AR300M16.

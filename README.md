@@ -33,11 +33,15 @@ sensor for obstacle avoidance.
 
 ## Launch Files
 
- * robot.launch - everything needed to run the robot. Setting the offline_mode
-   argument to true will only run the processing pipelines. This is useful for
-   running against bagfiles.
- * raw_imu_odom_gps.launch - starts a minimal set of drivers and a ROS bag.
-   These bags can be used with the offline_mode.
+ * robot.launch.py - everything needed to run the robot. Can be run in offline
+   mode to run just the pipelines, with use_sim_time set. This is useful for
+   running against bagfiles:
+   ```
+   ros2 launch robomagellan robot.launch.py offline:=true
+   ```
+ * drivers.launch.py - this is just the hardware drivers - useful for collecting
+   bagfiles. Normally is included as part of robot.launch.py when running the
+   RoboMagellan application
 
 ## Recording Bagfiles
 

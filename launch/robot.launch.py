@@ -53,7 +53,6 @@ def launch_file(name):
     )
 
 def generate_launch_description():
-
     return LaunchDescription([
         # Arguments first
         DeclareLaunchArgument('offline', default_value='false'),
@@ -64,11 +63,17 @@ def generate_launch_description():
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
 
-        # TODO: Process GPS sentences into Fix
-        #<include file="$(find robomagellan)/launch/compute/gps.launch.xml" />
+        # Process GPS sentences into Fix
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('compute/gps.launch.py')]),
+            launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
+        ),
 
-        # TODO: Process IMU into usable values
-        #<include file="$(find robomagellan)/launch/compute/imu.launch.xml" />
+        # Process IMU into usable values
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('compute/imu.launch.py')]),
+            launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
+        ),
 
         # TODO: Local frame localization (base_link to odom)
         #<include file="$(find robomagellan)/launch/compute/ekf_local.launch.xml" />

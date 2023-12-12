@@ -50,6 +50,16 @@ Raw data bagfile for analysis and development:
 ros2 bag record /base_controller/odom /gps/nmea_sentence /imu_um7/data /imu_um7/mag /imu_um7/rpy /joint_states /livox/imu /livox/lidar /robot_description /tf /tf_static
 ```
 
+## rviz_satellite
+
+This fork works on Iron: https://github.com/blacksoul000/rviz_satellite/tree/dashing
+
+To test the plugin:
+
+```
+ros2 topic pub -r 10 /gps/fix sensor_msgs/msg/NavSatFix "{header: {frame_id: "map"}, status: {service: 1}, latitude: VALUE, longitude: VALUE}"
+```
+
 ## Hardware Details
 
  * Computer: Intel NUC, 19V @ 60W.

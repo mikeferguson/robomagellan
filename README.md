@@ -60,13 +60,14 @@ To test the plugin:
 ros2 topic pub -r 10 /gps/fix sensor_msgs/msg/NavSatFix "{header: {frame_id: "map"}, status: {service: 1}, latitude: VALUE, longitude: VALUE}"
 ```
 
-## Hardware Details
+## Hardware Details (gen2)
 
  * Computer: Intel NUC, 19V @ 60W.
  * Switch: TP-Link Litewave 5.  5V @ 3.7W.
  * Lidar: Livox MID-360, 12V (9-27V) @ 6.5W. Comms over Ethernet.
  * Camera: TBD.
- * GPS: TBD. Comms over USB.
+ * GPS: Sparkfun GPS-RTK-SMA w/ UBlox ZED-F9P. Comms over USB.
  * IMU: UM7. Comms over USB.
  * Custom integrated power and control board. Comms over Ethernet.
  * Wifi Access Point: GL-AR300M16.
+ * Motor: Hobbywing 30404310 - 13.5T Sensored. KV: 2850. 0.0289 Ohm. 2-3S, 2 Pole. Max Power: 180W @ 50A

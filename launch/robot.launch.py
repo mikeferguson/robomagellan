@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2020, Michael Ferguson
+# Copyright (c) 2020-2023, Michael Ferguson
 # All rights reserved.
 #
 # Software License Agreement (BSD License 2.0)
@@ -41,7 +41,7 @@ from launch import LaunchDescription, LaunchService
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
 def launch_file(name):
@@ -56,10 +56,18 @@ def generate_launch_description():
     return LaunchDescription([
         # Arguments first
         DeclareLaunchArgument('offline', default_value='false'),
+        DeclareLaunchArgument('gen', default_value='gen1'),
 
         # Drivers
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([launch_file('drivers.launch.py')]),
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    get_package_share_directory('robomagellan'),
+                    'launch',
+                    LaunchConfiguration('gen'),
+                    'drivers.launch.py']
+                )
+            ),
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
 

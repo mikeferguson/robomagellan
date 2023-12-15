@@ -10,6 +10,8 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>rclcpp</depend>
+
   <!-- dependencies for robot startup -->
   <exec_depend>geodesy</exec_depend>
   <exec_depend>imu_filter_madgwick</exec_depend>

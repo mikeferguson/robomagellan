@@ -6,6 +6,8 @@
 #include <iostream>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <robomagellan/srv/from_lla.hpp>
+#include <robomagellan/srv/to_lla.hpp>
 #include <robomagellan/convert_gps.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 
@@ -29,8 +31,15 @@ public:
     gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
                  "fix", rclcpp::SystemDefaultsQoS(),
                  std::bind(&GPStoCart::gpsCallback, this, std::placeholders::_1));
+
+    // Setup services
+    from_service_ = this->create_service<robomagellan::srv::FromLLA>("from_lla",
+                      std::bind(&GPStoCart::fromLLA, this, std::placeholders::_1, std::placeholders::_2));
+    to_service_ = this->create_service<robomagellan::srv::ToLLA>("fto_lla",
+                    std::bind(&GPStoCart::toLLA, this, std::placeholders::_1, std::placeholders::_2));
   }
 
+private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr& msg)
   {
     // Don't process this until we have an actual fix
@@ -77,12 +86,41 @@ public:
     pose_pub_->publish(pose);
   }
 
-private:
+  void fromLLA(const std::shared_ptr<robomagellan::srv::FromLLA::Request> request,
+               std::shared_ptr<robomagellan::srv::FromLLA::Response> response)
+  {
+    if (gps_converter_->ready())
+    {
+      for (auto & gp : request->lla_points)
+      {
+        geometry_msgs::msg::Point mp;
+        gps_converter_->LLAtoCart(gp.latitude, gp.longitude, gp.altitude, &(mp.x), &(mp.y), &(mp.z));
+        response->map_points.push_back(mp);
+      }
+    }
+  }
+
+  void toLLA(const std::shared_ptr<robomagellan::srv::ToLLA::Request> request,
+             std::shared_ptr<robomagellan::srv::ToLLA::Response> response)
+  {
+    if (gps_converter_->ready())
+    {
+      for (auto & mp : request->map_points)
+      {
+        geographic_msgs::msg::GeoPoint gp;
+        gps_converter_->CartToLLA(mp.x, mp.y, mp.z, &(gp.latitude), &(gp.longitude), &(gp.altitude));
+        response->lla_points.push_back(gp);
+      }
+    }
+  }
+
   robomagellan::ConvertGPS * gps_converter_;
   sensor_msgs::msg::NavSatFix map_fix_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gps_pub_;
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
+  rclcpp::Service<robomagellan::srv::FromLLA>::SharedPtr from_service_;
+  rclcpp::Service<robomagellan::srv::ToLLA>::SharedPtr to_service_;
 };
 
 int main(int argc, char** argv)

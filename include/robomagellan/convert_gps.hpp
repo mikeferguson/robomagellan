@@ -48,6 +48,11 @@ public:
   bool CartToLLA(double e, double n, double u,
                  double * lat, double * lon, double * alt);
 
+  /**
+   * @brief Is the converter ready? Currently that means datum is set.
+   */
+  bool ready();
+
 private:
   PJ_CONTEXT * ctx_;
   PJ * transform_;

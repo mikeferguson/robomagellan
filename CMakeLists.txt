@@ -2,9 +2,19 @@ cmake_minimum_required(VERSION 3.5)
 project(robomagellan)
 
 find_package(ament_cmake REQUIRED)
+find_package(geographic_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/FromLLA.srv"
+  "srv/ToLLA.srv"
+  DEPENDENCIES geographic_msgs geometry_msgs
+)
+
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} rosidl_typesupport_cpp)
 
 include_directories(include)
 
@@ -13,11 +23,12 @@ add_executable(gps_to_cart
   src/gps_to_cart.cpp
 )
 ament_target_dependencies(gps_to_cart
+  geographic_msgs
   geometry_msgs
   rclcpp
   sensor_msgs
 )
-target_link_libraries(gps_to_cart proj)
+target_link_libraries(gps_to_cart proj "${cpp_typesupport_target}")
 
 install(
   DIRECTORY config
@@ -47,4 +58,5 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+ament_export_dependencies(rosidl_default_runtime)
 ament_package()

@@ -40,7 +40,7 @@ bool ConvertGPS::setDatum(double lat, double lon, double alt)
 }
 
 bool ConvertGPS::LLAtoCart(double lat, double lon, double alt,
-                    double * e, double * n, double * u)
+                           double * e, double * n, double * u)
 {
   // Setup conversions, if needed
   if (!ctx_ && !setDatum(lat, lon, alt))
@@ -61,7 +61,7 @@ bool ConvertGPS::LLAtoCart(double lat, double lon, double alt,
 }
 
 bool ConvertGPS::CartToLLA(double e, double n, double u,
-                    double * lat, double * lon, double * alt)
+                           double * lat, double * lon, double * alt)
 {
   if (!ctx_)
   {
@@ -80,6 +80,11 @@ bool ConvertGPS::CartToLLA(double e, double n, double u,
   *alt = lla.lpz.z;
 
   return true;
+}
+
+bool ConvertGPS::ready()
+{
+  return (transform_ != nullptr);
 }
 
 }  // namespace robomagellan

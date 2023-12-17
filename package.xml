@@ -1,4 +1,4 @@
-<package format="2">
+<package format="3">
   <name>robomagellan</name>
   <version>0.1.0</version>
   <description>
@@ -10,6 +10,9 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <build_depend>rosidl_default_generators</build_depend>
+
+  <depend>geographic_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
@@ -22,10 +25,13 @@
   <exec_depend>joy</exec_depend>
   <exec_depend>nmea_msgs</exec_depend>
   <exec_depend>nmea_navsat_driver</exec_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
   <exec_depend>teleop_twist_joy</exec_depend>
   <exec_depend>um7</exec_depend>
   <exec_depend>xacro</exec_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
     <build_type>ament_cmake</build_type>

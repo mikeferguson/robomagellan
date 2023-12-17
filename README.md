@@ -43,6 +43,11 @@ sensor for obstacle avoidance.
    bagfiles. Normally is included as part of robot.launch.py when running the
    RoboMagellan application
 
+## Event Configuration
+
+ * Edit line 34 of fixed_lag_global.yaml to set the initial heading of the robot
+ * TODO: setup breadcrumbs and goal poses
+
 ## Recording Bagfiles
 
 Raw data bagfile for analysis and development:

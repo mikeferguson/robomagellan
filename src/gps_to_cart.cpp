@@ -35,7 +35,7 @@ public:
     // Setup services
     from_service_ = this->create_service<robomagellan::srv::FromLLA>("from_lla",
                       std::bind(&GPStoCart::fromLLA, this, std::placeholders::_1, std::placeholders::_2));
-    to_service_ = this->create_service<robomagellan::srv::ToLLA>("fto_lla",
+    to_service_ = this->create_service<robomagellan::srv::ToLLA>("to_lla",
                     std::bind(&GPStoCart::toLLA, this, std::placeholders::_1, std::placeholders::_2));
   }
 

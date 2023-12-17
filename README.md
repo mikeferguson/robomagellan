@@ -21,7 +21,7 @@ sensor for obstacle avoidance.
  * Build things in workspace:
    * https://github.com/mikeferguson/livox_ros_driver2
    * https://github.com/mikeferguson/robomagellan
-   * https://github.com/mikeferguson/robot_controllers
+   * https://github.com/mikeferguson/robot_controllers (branch: odom_covariance)
    * https://github.com/mikeferguson/um7
    * https://github.com/mikeferguson/serial
    * https://github.com/ros-perception/imu_pipeline

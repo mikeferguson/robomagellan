@@ -22,6 +22,12 @@ etherbotix:
         - "lf_wheel_joint"
       r_wheel_joints:
         - "rf_wheel_joint"
+      # Linear twist is well defined, but angular is poor due to skid steer
+      twist_covariance_x: 0.1
+      twist_covariance_y: 0.1
+      twist_covariance_r: 10.0
+      # TF will be published by fuse
+      publish_tf: false
     lr_wheel_mimic:
       type: "robot_controllers/ScaledMimicController"
       mimic_joint: "lf_wheel_joint"

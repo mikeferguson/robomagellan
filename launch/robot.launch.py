@@ -71,19 +71,32 @@ def generate_launch_description():
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
 
+        # Process GPU into usable values
+        Node(
+            name='gps_to_cart',
+            package='robomagellan',
+            executable='gps_to_cart',
+            parameters=[{'use_sim_time': LaunchConfiguration('offline')}],
+            remappings=[('fix', 'gps/fix')]
+        ),
+
         # Process IMU into usable values
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([launch_file('compute/imu.launch.py')]),
             launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
         ),
 
-        # TODO: Local frame localization (base_link to odom)
-        #<include file="$(find robomagellan)/launch/compute/ekf_local.launch.xml" />
+        # Local frame localization (base_link to odom)
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('compute/fuse_local.launch.py')]),
+            launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
+        ),
 
-        # TODO: Global frame localization (map to odom)
-        #<include file="$(find robomagellan)/launch/compute/ekf_global.launch.xml" />
-
-        # TODO: Setup global localization
+        # Global frame localization (map to odom)
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('compute/fuse_global.launch.py')]),
+            launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
+        ),
 
         # TODO: add navigation, yeah, that is totally one line
 

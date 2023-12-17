@@ -58,7 +58,7 @@ def generate_launch_description():
             package='imu_transformer',
             executable='imu_transformer_node',
             parameters=[{'target_frame': 'base_link',
-                         'use_sim_time': True}],
+                         'use_sim_time': LaunchConfiguration('use_sim_time')}],
             remappings=[('imu_in', 'imu_um7/data'),
                         ('mag_in', 'imu_um7/mag'),
                         ('imu_out', 'imu/data_raw'),
@@ -74,6 +74,6 @@ def generate_launch_description():
                          'gain': 0.01,
                          'zeta': 0.001,
                          'publish_tf': False,
-                         'use_sim_time': True}]
+                         'use_sim_time': LaunchConfiguration('use_sim_time')}]
         )
     ])

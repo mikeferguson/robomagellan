@@ -15,6 +15,7 @@
   <depend>sensor_msgs</depend>
 
   <!-- dependencies for robot startup -->
+  <exec_depend>fuse</exec_depend>
   <exec_depend>geodesy</exec_depend>
   <exec_depend>imu_filter_madgwick</exec_depend>
   <exec_depend>imu_transformer</exec_depend>

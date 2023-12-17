@@ -43,47 +43,20 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     package_dir = get_package_share_directory('robomagellan')
-    config_file = os.path.join(package_dir, 'config', 'ekf_global.yaml')
+    fixed_lag_config = os.path.join(package_dir, 'config', 'fixed_lag_global.yaml')
 
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'use_sim_time', default_value='false',
+            'use_sim_time', default_value='true',
             description='Use clock topic (from bagfile) if true'),
 
-        # EKF node for global odometry
         Node(
-            name='ekf_global_odom',
-            package='robot_localization',
-            executable='ekf_node',
-            parameters=[config_file,
-                        {'use_sim_time': True}],
-            # Subscriptions (in yaml):
-            #   odom0: odometry/gps (from navsat node)
-            #   odom1: base_controller/odom
-            #   imu0:  imu/data
-            # Publishes odometry/global
-            remappings=[('odometry/filtered', 'odometry/global')]
+            name='fixed_lag_global',
+            package='fuse_optimizers',
+            executable='fixed_lag_smoother_node',
+            parameters=[fixed_lag_config,
+                        {'use_sim_time': LaunchConfiguration('use_sim_time')}],
         ),
-
-        # Turn GPS fix into odometry message for EKF
-        Node(
-            name='navsat_transform_node',
-            package='robot_localization',
-            executable='navsat_transform_node',
-            # yaw_offset - corrects to make IMU read 0 when facing East
-            # magnetic_declination - see http://www.ngdc.noaa.gov/geomag-web
-            # zero_altitude - pretends the world is flat
-            # use_odometry_yaw - false, use IMU yaw
-            parameters=[{'yaw_offset': 0.0,
-                         'magnetic_declination_radians': 0.2516183,
-                         'zero_altitude': True,
-                         'publish_filtered_gps': False,
-                         'frequency': 10.0,
-                         'use_odometry_yaw': False}],
-            # Subscribes to imu/data, gps/fix, odometry/global
-            # Publishes gps/filtered, odometry/gps
-            remappings=[('odometry/filtered', 'odometry/global')]
-        )
     ])

@@ -43,21 +43,20 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     package_dir = get_package_share_directory('robomagellan')
-    config_file = os.path.join(package_dir, 'config', 'ekf_local.yaml')
+    fixed_lag_config = os.path.join(package_dir, 'config', 'fixed_lag_local.yaml')
 
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'use_sim_time', default_value='false',
+            'use_sim_time', default_value='true',
             description='Use clock topic (from bagfile) if true'),
 
         Node(
-            name='ekf_local_odom',
-            package='robot_localization',
-            executable='ekf_node',
-            parameters=[config_file,
-                        {'use_sim_time': True}],
-            remappings=[('odometry/filtered', 'odometry/local')]
-        ),
+            name='fixed_lag_local',
+            package='fuse_optimizers',
+            executable='fixed_lag_smoother_node',
+            parameters=[fixed_lag_config,
+                        {'use_sim_time': LaunchConfiguration('use_sim_time')}],
+        )
     ])

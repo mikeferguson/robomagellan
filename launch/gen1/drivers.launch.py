@@ -87,6 +87,16 @@ def generate_launch_description():
             remappings=[('nmea_sentence', 'gps/nmea_sentence')],
         ),
 
+        # Convert GPS into NavSatFix message
+        Node(
+            name='nmea_topic_driver',
+            package='nmea_navsat_driver',
+            executable='nmea_topic_driver',
+            remappings=[('nmea_sentence', 'gps/nmea_sentence'),
+                        ('fix', 'gps/fix')],
+            output="screen"
+        ),
+
         # UM7 IMU
         Node(
             name='um7_driver',

@@ -71,12 +71,6 @@ def generate_launch_description():
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
 
-        # Process GPS sentences into Fix
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([launch_file('compute/gps.launch.py')]),
-            launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
-        ),
-
         # Process IMU into usable values
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([launch_file('compute/imu.launch.py')]),

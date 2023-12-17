@@ -3,18 +3,18 @@
  * All Rights Reserved.
  */
 
-#ifndef ROBOMAGELLAN__GPS_HPP_
-#define ROBOMAGELLAN__GPS_HPP_
+#ifndef ROBOMAGELLAN__CONVERT_GPS_HPP_
+#define ROBOMAGELLAN__CONVERT_GPS_HPP_
 
 #include <proj.h>
 
 namespace robomagellan
 {
-class GPS
+class ConvertGPS
 {
 public:
-  GPS();
-  virtual ~GPS();
+  ConvertGPS();
+  virtual ~ConvertGPS();
 
   /**
    * @brief Setup the datum that will be the reference of the cartesian frame.
@@ -55,4 +55,4 @@ private:
 
 }  // namespace robomagellan
 
-#endif  // ROBOMAGELLAN__GPS_HPP_
+#endif  // ROBOMAGELLAN__CONVERT_GPS_HPP_

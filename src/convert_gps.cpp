@@ -6,22 +6,22 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <robomagellan/gps.hpp>
+#include <robomagellan/convert_gps.hpp>
 
 namespace robomagellan
 {
 
-GPS::GPS() : ctx_(nullptr), transform_(nullptr)
+ConvertGPS::ConvertGPS() : ctx_(nullptr), transform_(nullptr)
 {
 }
 
-GPS::~GPS()
+ConvertGPS::~ConvertGPS()
 {
   proj_destroy(transform_);
   proj_context_destroy(ctx_);
 }
 
-bool GPS::setDatum(double lat, double lon, double alt)
+bool ConvertGPS::setDatum(double lat, double lon, double alt)
 {
   std::cout << "Setting coordinate frame at " << lat << ", " << lon << std::endl;
   ctx_ = proj_context_create();
@@ -39,7 +39,7 @@ bool GPS::setDatum(double lat, double lon, double alt)
   return true;
 }
 
-bool GPS::LLAtoCart(double lat, double lon, double alt,
+bool ConvertGPS::LLAtoCart(double lat, double lon, double alt,
                     double * e, double * n, double * u)
 {
   // Setup conversions, if needed
@@ -60,7 +60,7 @@ bool GPS::LLAtoCart(double lat, double lon, double alt,
   return true;
 }
 
-bool GPS::CartToLLA(double e, double n, double u,
+bool ConvertGPS::CartToLLA(double e, double n, double u,
                     double * lat, double * lon, double * alt)
 {
   if (!ctx_)

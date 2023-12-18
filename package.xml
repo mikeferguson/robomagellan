@@ -6,7 +6,7 @@
   </description>
   <author>Michael Ferguson</author>
   <maintainer email="mfergs7@gmail.com">Michael Ferguson</maintainer>
-  <license>GPL</license>
+  <license>BSD</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

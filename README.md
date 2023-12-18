@@ -57,7 +57,7 @@ ros2 bag record /base_controller/odom /gps/nmea_sentence /imu_um7/data /imu_um7/
 
 ## rviz_satellite
 
-This fork works on Iron: https://github.com/blacksoul000/rviz_satellite/tree/dashing
+This fork works on Iron: https://github.com/nobleo/rviz_satellite/tree/ros2
 
 To test the plugin:
 

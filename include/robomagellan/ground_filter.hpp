@@ -48,11 +48,12 @@ public:
     logger_(rclcpp::get_logger("ground_filter"))
   {
     // Configure bin structure
-    size_t num_rings = this->declare_parameter<int>("num_rings", 4);
+    debug_topics_ = this->declare_parameter<bool>("debug_topics", true);  // TODO: make this default false
+    size_t num_rings = this->declare_parameter<int>("num_rings", 6);
     std::vector<long> sectors =
-      this->declare_parameter<std::vector<long>>("sectors", {8, 8, 8, 16});
+      this->declare_parameter<std::vector<long>>("sectors", {4, 8, 16, 16, 32, 32});
     std::vector<double> margins =
-      this->declare_parameter<std::vector<double>>("margins", {0.125, 1.25, 2.5, 4.0, 8.0});
+      this->declare_parameter<std::vector<double>>("margins", {0.125, 1.25, 2.0, 3.4, 4.8, 6.4, 8.0});
 
     bins_ = std::make_unique<BinModel<T>>(num_rings, margins, sectors);
 
@@ -71,6 +72,12 @@ public:
 
     // Publish the points that correspond to obstacles
     obstacle_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("obstacles", qos);
+
+    if (debug_topics_)
+    {
+      off_axis_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("off_axis", qos);
+      colored_bin_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("colored_bins", qos);
+    }
 
     // Subscribe the incoming point cloud message
     cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -104,27 +111,53 @@ private:
     bins_->clear();
     bins_->addPoints(cloud);
 
-    // Just publish the colorized mapping into bins
-    pcl::PointCloud<pcl::PointXYZRGB> color_cloud;
-    bins_->getColorCloud(color_cloud);
+    pcl::PointCloud<T> ground_cloud, obstacle_cloud;
+    bins_->getGroundCloud(ground_cloud);
+    bins_->getObstacleCloud(obstacle_cloud);
 
-    sensor_msgs::msg::PointCloud2 color_msg;
-    pcl::toROSMsg(color_cloud, color_msg);
-    color_msg.header.stamp = msg->header.stamp;
-    color_msg.header.frame_id = (tf2_buffer_) ? target_frame_ : msg->header.frame_id;
-    ground_pub_->publish(color_msg);
+    sensor_msgs::msg::PointCloud2 cloud_msg;
+    pcl::toROSMsg(ground_cloud, cloud_msg);
+    cloud_msg.header.stamp = msg->header.stamp;
+    cloud_msg.header.frame_id = (tf2_buffer_) ? target_frame_ : msg->header.frame_id;
+    ground_pub_->publish(cloud_msg);
+
+    pcl::toROSMsg(obstacle_cloud, cloud_msg);
+    cloud_msg.header.stamp = msg->header.stamp;
+    cloud_msg.header.frame_id = (tf2_buffer_) ? target_frame_ : msg->header.frame_id;
+    obstacle_pub_->publish(cloud_msg);
+
+    if (debug_topics_)
+    {
+      pcl::PointCloud<T> off_axis_cloud;
+      bins_->getOffAxisCloud(off_axis_cloud);
+      pcl::toROSMsg(off_axis_cloud, cloud_msg);
+      cloud_msg.header.stamp = msg->header.stamp;
+      cloud_msg.header.frame_id = (tf2_buffer_) ? target_frame_ : msg->header.frame_id;
+      off_axis_pub_->publish(cloud_msg);
+
+      pcl::PointCloud<pcl::PointXYZRGB> color_cloud;
+      bins_->getColorCloud(color_cloud);
+      sensor_msgs::msg::PointCloud2 color_msg;
+      pcl::toROSMsg(color_cloud, color_msg);
+      color_msg.header.stamp = msg->header.stamp;
+      color_msg.header.frame_id = (tf2_buffer_) ? target_frame_ : msg->header.frame_id;
+      colored_bin_pub_->publish(color_msg);
+    }
   }
 
   // Organization
   std::unique_ptr<BinModel<T>> bins_;
 
   // Parameters
+  bool debug_topics_;
   std::string target_frame_;
 
   // ROS Interfaces
   rclcpp::Logger logger_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr off_axis_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_bin_pub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;

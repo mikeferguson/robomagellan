@@ -45,8 +45,12 @@
  *  1) Use RANSAC to iteratively find largest plane in each bin. Stop when either:
  *     a) The largest plane is parallel enough ground
  *     b) The remaining cloud is smaller than min_points parameter for that bin
- *  2) For bins without enough points (less than min_points), segment them
- *     using the plane model of adjacent bins. (NOT YET IMPLEMENTED)
+ *  2) Use adjacent bins to refine obstacle/ground segmentation:
+ *     a) For outliers where the normal was not vertical enough, compare the
+ *        normal to the ground plane normal in the adjacent bin. This helps
+ *        when the ground is on a hill.
+ *     b) For bins without enough points (less than min_points), segment them
+ *        using the plane model of adjacent bins. (NOT YET IMPLEMENTED)
  *  3) Filter the obstacle cloud using clustering. (NOT YET IMPLEMENTED)
  */
 
@@ -56,7 +60,7 @@ struct BinParams
   size_t min_points = 10;
 
   // Maximum thickness of ground surface
-  double planar_tolerance = 0.2;
+  double planar_tolerance = 0.05;
 
   // Maximum distance from vertical plane can be and still be ground
   double vertical_tolerance = 0.15;
@@ -71,28 +75,32 @@ struct Bin
   Bin()
   {
     points = std::make_shared<pcl::PointCloud<T>>();
-    params = std::make_shared<BinParams>();  // TODO: pass this in with appropriate values set
+    params = std::make_shared<BinParams>();
   }
 
   void clear()
   {
     points->clear();
-    obstacles.clear();
-    off_axis.clear();
+    outliers.clear();
+    outlier_normals.clear();
+    outlier_is_obstacle.clear();
+    // Reset normal to all zeros
+    normal = Eigen::Vector3f::Zero();
   }
 
   void process()
   {
-    std::cout << "Process bin (" << ring << "," << sector << "): " << points->size() << " points" << std::endl;
-
     // Extract ground plane
     while (true)
     {
       if (points->size() < params->min_points)
       {
-        // TODO: clearly mark that we didn't process - and then later come
-        // back and filter these points by adjacent bin ground planes
-        //points->clear();
+        // 1b) Terminate because remaining cloud is too small
+        std::shared_ptr<pcl::PointCloud<T>> cloud = std::make_shared<pcl::PointCloud<T>>();
+        cloud = points;
+        outliers.push_back(cloud);
+        outlier_normals.push_back(Eigen::Vector3f::Zero());
+        outlier_is_obstacle.push_back(false);  // Default to not an obstacle
         return;
       }
 
@@ -112,58 +120,55 @@ struct Bin
       float angle = acos(Eigen::Vector3f::UnitZ().dot(normal));
       if (angle < params->vertical_tolerance)
       {
-        std::cout << "  Extracting ground plane of size " << inliers->indices.size() << std::endl;
-        // This is our ground plane - move all outliers to obstacles
+        // 1a) Terminate because this plane is parallel enough to the ground
         pcl::ExtractIndices<T> extract;
         extract.setInputCloud(points);
+        // Extract outliers into a new outlier candidate
+        std::shared_ptr<pcl::PointCloud<T>> cloud = std::make_shared<pcl::PointCloud<T>>();
         extract.setIndices(inliers);
         extract.setNegative(true);
-        pcl::PointCloud<T> t_obstacles;
-        extract.filter(t_obstacles);
-        obstacles += t_obstacles;
+        extract.filter(*cloud);
+        outliers.push_back(cloud);
+        // This outlier has no normal, cannot be turned back into ground points
+        outlier_normals.push_back(Eigen::Vector3f::Zero());
+        outlier_is_obstacle.push_back(true);
         // Then remove the outliers from the ground points
         extract.setNegative(false);
         extract.filter(*points);
-        break;
+        return;
       }
       else
       {
-        std::cout << "  Removing non-ground plane of size " << inliers->indices.size();
-        std::cout << " (" << normal(0) << "," << normal(1) << "," << normal(2) << ")" << std::endl;
         // This is a vertical plane - add to obstacles
         pcl::ExtractIndices<T> extract;
         extract.setInputCloud(points);
         extract.setIndices(inliers);
         extract.setNegative(false);
-        pcl::PointCloud<T> t_obstacles;
-        extract.filter(t_obstacles);
-        obstacles += t_obstacles;
-        off_axis += t_obstacles;
+        std::shared_ptr<pcl::PointCloud<T>> cloud = std::make_shared<pcl::PointCloud<T>>();
+        extract.filter(*cloud);
+        outliers.push_back(cloud);
+        outlier_normals.push_back(normal);
+        outlier_is_obstacle.push_back(true);
         // Then remove these points from the ground plane
         extract.setNegative(true);
         extract.filter(*points);
       }
     }
-
-    pcl::computeMeanAndCovarianceMatrix(*points, covariance, mean);
   }
+
+  // Bin ID
+  size_t ring, sector;
 
   // The points in the bin that may be part of ground plane
   std::shared_ptr<pcl::PointCloud<T>> points;
 
   // The points in this bin that are obstacles
-  pcl::PointCloud<T> obstacles;
-
-  // DEBUG ONLY
-  // Points that were rejected for being off-axis
-  pcl::PointCloud<T> off_axis;
-  size_t ring;
-  size_t sector;
+  std::vector<std::shared_ptr<pcl::PointCloud<T>>> outliers;
+  std::vector<Eigen::Vector3f> outlier_normals;
+  std::vector<bool> outlier_is_obstacle;
 
   // Specification of the point cloud
-  Eigen::Vector4f mean;
   Eigen::Vector3f normal;
-  Eigen::Matrix3f covariance;
 
   // Parameters to be used for processing
   std::shared_ptr<BinParams> params;
@@ -221,7 +226,23 @@ struct BinModel
     }
   }
 
-  /** @brief Add points from a cloud */
+  /** @brief Set the bin parameters. */
+  void setBinParams(std::shared_ptr<BinParams> params, double scaling)
+  {
+    for (auto & ring : bins)
+    {
+      for (auto & bin : ring)
+      {
+        size_t ring = bin->ring;
+        double dist = std::min(1.0, (ring_margins[ring] + ring_margins[ring + 1]) / 2.0);
+        bin->params->min_points = params->min_points;
+        bin->params->planar_tolerance = params->planar_tolerance * (1 + dist * scaling);
+        bin->params->vertical_tolerance = params->vertical_tolerance;
+      }
+    }
+  }
+
+  /** @brief Add points from a cloud. */
   void addPoints(pcl::PointCloud<T> & cloud)
   {
     // Insert points into bins
@@ -255,39 +276,102 @@ struct BinModel
         bin->process();
       }
     }
+
+    // Ensure consistency between bin
+    for (auto & ring : bins)
+    {
+      for (auto & bin : ring)
+      {
+        // Check bin inside
+        if (bin->ring > 0)
+        {
+          int this_level = bins[bin->ring].size();
+          int lower_level = bins[bin->ring].size();
+          int s = bin->ring / (this_level / lower_level);
+          apply_consistency(bin, bins[bin->ring - 1][s]);
+        }
+
+        // Check bin to left/right
+        int l = (static_cast<int>(bin->sector) - 1) % bins[bin->ring].size();
+        int r = (static_cast<int>(bin->sector) + 1) % bins[bin->ring].size();
+        apply_consistency(bin, bins[bin->ring][l]);
+        apply_consistency(bin, bins[bin->ring][r]);
+      }
+    }
   }
 
+  /** @brief Apply local consistency constraints. */
+  void apply_consistency(BinPtr<T> a, BinPtr<T> b)
+  {
+    if (b->normal.norm() < 0.1)
+    {
+      // Not a valid normal - bin B has no reference ground plane.
+      return;
+    }
+
+    for (size_t i = 0; i < a->outliers.size(); ++i)
+    {
+      auto n = a->outlier_normals[i];
+      if (n.norm() < 0.1)
+      {
+        // Not a valid normal
+        // TODO: use adjacent bin to see if we can make these not outliers
+      }
+      else
+      {
+        float angle = acos(n.dot(b->normal));
+        if (angle < a->params->vertical_tolerance)
+        {
+          /*
+          if (a->outlier_is_obstacle[i])
+          {
+            std::cout << "Bin " << a->ring << "," << a->sector
+                      << " reverted outlier when aligned with "
+                      << b->ring << "," << b->sector << std::endl;
+          }
+          */
+          a->outlier_is_obstacle[i] = false;
+        }
+      }
+    }
+  }
+
+  /** @brief Get a point cloud of all ground points. */
   bool getGroundCloud(pcl::PointCloud<T> & cloud)
   {
     for (auto & ring : bins)
     {
       for (auto & bin : ring)
       {
+        // All points still in the "points" are ground points
         cloud += *(bin->points);
+        // Outliers that are not obstacles are also ground points
+        for (size_t i = 0; i < bin->outliers.size(); ++i)
+        {
+          if (!bin->outlier_is_obstacle[i])
+          {
+            cloud += *(bin->outliers[i]);
+          }
+        }
       }
     }
     return true;
   }
 
+  /** @brief Get a point cloud of all obstacle points. */
   bool getObstacleCloud(pcl::PointCloud<T> & cloud)
   {
     for (auto & ring : bins)
     {
       for (auto & bin : ring)
       {
-        cloud += bin->obstacles;
-      }
-    }
-    return true;
-  }
-
-  bool getOffAxisCloud(pcl::PointCloud<T> & cloud)
-  {
-    for (auto & ring : bins)
-    {
-      for (auto & bin : ring)
-      {
-        cloud += bin->off_axis;
+        for (size_t i = 0; i < bin->outliers.size(); ++i)
+        {
+          if (bin->outlier_is_obstacle[i])
+          {
+            cloud += *(bin->outliers[i]);
+          }
+        }
       }
     }
     return true;
@@ -312,9 +396,12 @@ struct BinModel
         {
           cloud.points.emplace_back(point.x, point.y, point.z, r, g, b);
         }
-        for (auto & point : bin->obstacles)
+        for (auto & outlier_cloud : bin->outliers)
         {
-          cloud.points.emplace_back(point.x, point.y, point.z, r, g, b);
+          for (auto & point : *outlier_cloud)
+          {
+            cloud.points.emplace_back(point.x, point.y, point.z, r, g, b);
+          }
         }
         // Shift colors
         std::swap(b, g);

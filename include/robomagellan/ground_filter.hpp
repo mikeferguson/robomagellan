@@ -47,15 +47,25 @@ public:
   : rclcpp::Node("ground_filter"),
     logger_(rclcpp::get_logger("ground_filter"))
   {
-    // Configure bin structure
+    // Parameters
     debug_topics_ = this->declare_parameter<bool>("debug_topics", true);  // TODO: make this default false
-    size_t num_rings = this->declare_parameter<int>("num_rings", 6);
+
+    // Configure bin structure
+    size_t num_rings = this->declare_parameter<int>("num_rings", 7);
     std::vector<long> sectors =
-      this->declare_parameter<std::vector<long>>("sectors", {4, 8, 16, 16, 32, 32});
+      this->declare_parameter<std::vector<long>>("sectors", {4, 16, 16, 32, 32, 32, 32});
     std::vector<double> margins =
-      this->declare_parameter<std::vector<double>>("margins", {0.125, 1.25, 2.0, 3.4, 4.8, 6.4, 8.0});
+      this->declare_parameter<std::vector<double>>("margins", {0.125, 1.0, 1.6, 2.4, 3.4, 4.8, 6.4, 8.0});
 
     bins_ = std::make_unique<BinModel<T>>(num_rings, margins, sectors);
+
+    // Configure bin parameters
+    std::shared_ptr<BinParams> bin_params = std::make_shared<BinParams>();
+    bin_params->min_points = this->declare_parameter<int>("bin_min_points", 10);
+    bin_params->planar_tolerance = this->declare_parameter<double>("bin_planar_tol", 0.2);
+    bin_params->vertical_tolerance = this->declare_parameter<double>("bin_vertical_tol", 0.15);
+    double scale = this->declare_parameter<double>("bin_dist_scaling", 0.05);
+    bins_->setBinParams(bin_params, scale);
 
     // Optionally transform cloud into another frame (usually base_link)
     target_frame_ = this->declare_parameter<std::string>("target_frame", "");
@@ -75,7 +85,6 @@ public:
 
     if (debug_topics_)
     {
-      off_axis_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("off_axis", qos);
       colored_bin_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("colored_bins", qos);
     }
 
@@ -108,8 +117,10 @@ private:
       }
     }
 
+    RCLCPP_INFO(logger_, "Start process");
     bins_->clear();
     bins_->addPoints(cloud);
+    RCLCPP_INFO(logger_, "End process");
 
     pcl::PointCloud<T> ground_cloud, obstacle_cloud;
     bins_->getGroundCloud(ground_cloud);
@@ -128,13 +139,6 @@ private:
 
     if (debug_topics_)
     {
-      pcl::PointCloud<T> off_axis_cloud;
-      bins_->getOffAxisCloud(off_axis_cloud);
-      pcl::toROSMsg(off_axis_cloud, cloud_msg);
-      cloud_msg.header.stamp = msg->header.stamp;
-      cloud_msg.header.frame_id = (tf2_buffer_) ? target_frame_ : msg->header.frame_id;
-      off_axis_pub_->publish(cloud_msg);
-
       pcl::PointCloud<pcl::PointXYZRGB> color_cloud;
       bins_->getColorCloud(color_cloud);
       sensor_msgs::msg::PointCloud2 color_msg;
@@ -156,7 +160,6 @@ private:
   rclcpp::Logger logger_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr off_axis_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_bin_pub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;

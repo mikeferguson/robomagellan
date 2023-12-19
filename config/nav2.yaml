@@ -87,12 +87,18 @@ local_costmap:
         raytrace_min_range: 0.0
         raytrace_max_range: 6.0
         mark_threshold: 0
-        observation_sources: livox
-        livox:
-          topic: /livox/lidar
+        observation_sources: "livox_obstacles livox_ground"
+        livox_obstacles:
+          topic: /obstacles
           max_obstacle_height: 2.0
           clearing: True
           marking: True
+          data_type: "PointCloud2"
+        livox_ground:
+          topic: /ground_plane
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: False
           data_type: "PointCloud2"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -108,6 +114,8 @@ global_costmap:
       global_frame: map
       robot_base_frame: base_link
       rolling_window: true
+      width: 20
+      height: 20
       robot_radius: 0.25
       footprint_padding: 0.025
       resolution: 0.1
@@ -115,12 +123,27 @@ global_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
-        observation_sources: livox
-        livox:
-          topic: /livox/lidar
+        origin_z: 0.0
+        z_resolution: 0.125
+        z_voxels: 16
+        min_obstacle_height: 0.0
+        max_obstacle_height: 2.0
+        obstacle_min_range: 0.0
+        obstacle_max_range: 5.0
+        raytrace_min_range: 0.0
+        raytrace_max_range: 6.0
+        observation_sources: "livox_obstacles livox_ground"
+        livox_obstacles:
+          topic: /obstacles
           max_obstacle_height: 2.0
           clearing: True
           marking: True
+          data_type: "PointCloud2"
+        livox_ground:
+          topic: /ground_plane
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: False
           data_type: "PointCloud2"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"

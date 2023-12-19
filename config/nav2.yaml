@@ -95,7 +95,7 @@ local_costmap:
           marking: True
           data_type: "PointCloud2"
         livox_ground:
-          topic: /ground_plane
+          topic: /ground
           max_obstacle_height: 2.0
           clearing: True
           marking: False
@@ -140,7 +140,7 @@ global_costmap:
           marking: True
           data_type: "PointCloud2"
         livox_ground:
-          topic: /ground_plane
+          topic: /ground
           max_obstacle_height: 2.0
           clearing: True
           marking: False

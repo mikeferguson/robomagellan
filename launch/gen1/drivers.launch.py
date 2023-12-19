@@ -80,21 +80,15 @@ def generate_launch_description():
 
         # GPS publisher
         Node(
-            name='gps_publisher',
-            package='etherbotix',
-            executable='gps_publisher_node',
-            parameters=[{'frame_id': 'base_link'}],
-            remappings=[('nmea_sentence', 'gps/nmea_sentence')],
-        ),
-
-        # Convert GPS into NavSatFix message
-        Node(
-            name='nmea_topic_driver',
+            name='nmea_serial_driver',
             package='nmea_navsat_driver',
-            executable='nmea_topic_driver',
-            remappings=[('nmea_sentence', 'gps/nmea_sentence'),
-                        ('fix', 'gps/fix')],
-            output="screen"
+            executable='nmea_serial_driver',
+            parameters=[{'baud': 9600,
+                         'frame_id': 'base_link',
+                         'port': '/dev/ttyACM0'}],
+            remappings=[('fix', 'gps/fix'),
+                        ('heading', 'gps/heading'),
+                        ('vel', 'gps/vel')],
         ),
 
         # UM7 IMU

@@ -57,6 +57,12 @@ public:
     std::vector<double> margins =
       this->declare_parameter<std::vector<double>>("margins", {0.125, 1.0, 1.6, 2.4, 3.4, 4.8, 6.4, 8.0});
 
+    if (margins.size() != num_rings + 1 || sectors.size() != num_rings)
+    {
+      RCLCPP_ERROR(logger_, "Bin structure is malformed");
+      exit(1);
+    }
+
     bins_ = std::make_unique<BinModel<T>>(num_rings, margins, sectors);
 
     // Configure bin parameters

@@ -191,9 +191,6 @@ struct BinModel
    */
   BinModel(size_t num_rings, std::vector<double> margins, std::vector<long> sectors)
   {
-    assert(margins.size() == num_rings + 1);
-    assert(sectors.size() == num_rings);
-
     // Allocate storage
     bins.resize(num_rings);
     for (size_t i = 0; i < num_rings; ++i)

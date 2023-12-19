@@ -1,0 +1,10 @@
+ground_filter:
+  ros__parameters:
+    bin_dist_scaling: 0.5
+    bin_vertical_tol: 0.15
+    bin_planar_tol: 0.15
+    target_frame: 'base_link'
+
+    num_rings: 7
+    sectors: [4, 16, 16, 32, 32, 32, 32]
+    margins: [0.125, 1.0, 1.6, 2.4, 3.4, 4.8, 6.4, 8.0]

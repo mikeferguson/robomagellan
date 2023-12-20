@@ -43,16 +43,18 @@
 
 /*
  * General algorithm:
- *  1) Use RANSAC to iteratively find largest plane in each bin. Stop when either:
+ *  1) Split point cloud into bins. Bins are organized as a set of concentric
+ *     rings, each of which has a number of sectors.
+ *  2) Use RANSAC to iteratively find largest plane in each bin. Stop when either:
  *     a) The largest plane is parallel enough ground
  *     b) The remaining cloud is smaller than min_points parameter for that bin
- *  2) Use adjacent bins to refine obstacle/ground segmentation:
+ *  3) Use adjacent bins to refine obstacle/ground segmentation:
  *     a) For outliers where the normal was not vertical enough, compare the
  *        normal to the ground plane normal in the adjacent bin. This helps
  *        when the ground is on a hill.
  *     b) For bins without enough points (less than min_points), segment them
  *        using the plane model of adjacent bins. (NOT YET IMPLEMENTED)
- *  3) Filter the obstacle cloud using clustering. (NOT YET IMPLEMENTED)
+ *  4) Filter the obstacle cloud using clustering. (NOT YET IMPLEMENTED)
  */
 
 struct BinParams
@@ -96,7 +98,7 @@ struct Bin
     {
       if (points->size() < params->min_points)
       {
-        // 1b) Terminate because remaining cloud is too small
+        // 2b) Terminate because remaining cloud is too small
         std::shared_ptr<pcl::PointCloud<T>> cloud = std::make_shared<pcl::PointCloud<T>>();
         cloud = points;
         outliers.push_back(cloud);
@@ -121,7 +123,7 @@ struct Bin
       float angle = acos(Eigen::Vector3f::UnitZ().dot(normal));
       if (angle < params->vertical_tolerance)
       {
-        // 1a) Terminate because this plane is parallel enough to the ground
+        // 2a) Terminate because this plane is parallel enough to the ground
         pcl::ExtractIndices<T> extract;
         extract.setInputCloud(points);
         // Extract outliers into a new outlier candidate

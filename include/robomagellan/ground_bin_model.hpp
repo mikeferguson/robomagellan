@@ -34,6 +34,7 @@
 #include <vector>
 #include <utility>
 #include <angles/angles.h>
+#include <robomagellan/ground_model.hpp>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/sample_consensus/method_types.h>
@@ -181,8 +182,9 @@ using BinPtr = std::shared_ptr<Bin<T>>;
  * @brief Bins are organized in rings around the robot.
  */
 template <typename T>
-struct BinModel
+class BinModel : public GroundModel<T>
 {
+public:
   /**
    * @brief Create a new bin model
    * @param num_rings Number of rings around the robot.
@@ -297,42 +299,6 @@ struct BinModel
     }
   }
 
-  /** @brief Apply local consistency constraints. */
-  void apply_consistency(BinPtr<T> a, BinPtr<T> b)
-  {
-    if (b->normal.norm() < 0.1)
-    {
-      // Not a valid normal - bin B has no reference ground plane.
-      return;
-    }
-
-    for (size_t i = 0; i < a->outliers.size(); ++i)
-    {
-      auto n = a->outlier_normals[i];
-      if (n.norm() < 0.1)
-      {
-        // Not a valid normal
-        // TODO: use adjacent bin to see if we can make these not outliers
-      }
-      else
-      {
-        float angle = acos(n.dot(b->normal));
-        if (angle < a->params->vertical_tolerance)
-        {
-          /*
-          if (a->outlier_is_obstacle[i])
-          {
-            std::cout << "Bin " << a->ring << "," << a->sector
-                      << " reverted outlier when aligned with "
-                      << b->ring << "," << b->sector << std::endl;
-          }
-          */
-          a->outlier_is_obstacle[i] = false;
-        }
-      }
-    }
-  }
-
   /** @brief Get a point cloud of all ground points. */
   bool getGroundCloud(pcl::PointCloud<T> & cloud)
   {
@@ -407,6 +373,43 @@ struct BinModel
     }
 
     return true;
+  }
+
+private:
+  /** @brief Apply local consistency constraints. */
+  void apply_consistency(BinPtr<T> a, BinPtr<T> b)
+  {
+    if (b->normal.norm() < 0.1)
+    {
+      // Not a valid normal - bin B has no reference ground plane.
+      return;
+    }
+
+    for (size_t i = 0; i < a->outliers.size(); ++i)
+    {
+      auto n = a->outlier_normals[i];
+      if (n.norm() < 0.1)
+      {
+        // Not a valid normal
+        // TODO: use adjacent bin to see if we can make these not outliers
+      }
+      else
+      {
+        float angle = acos(n.dot(b->normal));
+        if (angle < a->params->vertical_tolerance)
+        {
+          /*
+          if (a->outlier_is_obstacle[i])
+          {
+            std::cout << "Bin " << a->ring << "," << a->sector
+                      << " reverted outlier when aligned with "
+                      << b->ring << "," << b->sector << std::endl;
+          }
+          */
+          a->outlier_is_obstacle[i] = false;
+        }
+      }
+    }
   }
 
   // Vector of rings, which are a vector of sector bins

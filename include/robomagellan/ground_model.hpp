@@ -57,6 +57,9 @@ public:
 
   /** @brief Get a point cloud of all obstacle points. */
   virtual bool getObstacleCloud(pcl::PointCloud<T> & cloud) = 0;
+
+  /** @brief Get a point cloud of all obstacle points. */
+  virtual bool getColorCloud(pcl::PointCloud<pcl::PointXYZRGB> & cloud) = 0;
 };
 
 #endif  // ROBOMAGELLAN__GROUND_MODEL_HPP_

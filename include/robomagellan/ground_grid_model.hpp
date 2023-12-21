@@ -366,19 +366,22 @@ public:
       // Determine adjacent cells
       std::vector<size_t> adjacent = getAdjacent(cell);
 
+      // Various conditions to check
+      bool is_horizontal = false;
+      bool is_vertical = false;
+      // TODO: compute is_step
+      // TODO: compute is_rough
+      // TODO: compute is_drop
+
       // Classification for seed depends on no adjacent cells
       if (cell.features_valid)
       {
-        // Various conditions to check
-        bool is_horizontal = false;
-        // TODO: compute is_step
-        // TODO: compute is_rough
-
-        // Determine if plane is vertical enough
-        is_horizontal = isHorizontal(cell);
-        if (!is_horizontal)
+        // Determine if plane normal is vertical enough
+        is_vertical = isVertical(cell);
+        is_horizontal = !is_vertical && isHorizontal(cell);
+        if (!is_horizontal && !is_vertical)
         {
-          // Compare to neighbors
+          // Compare to normals of adjacent cells
           for (auto idx : adjacent)
           {
             auto & adj = cells_[idx];
@@ -389,18 +392,13 @@ public:
             }
           }
         }
-
-        // Assign is_ground
-        if (is_horizontal)
-        {
-          cell.is_ground = true;
-        }
       }
-      else if (cell.points->empty())
+
+      if (cell.points->empty())
       {
         // TODO: add drop detection for empty cells near robot
       }
-      else
+      else if (!is_vertical)
       {
         // Attempt to connect these points to an adjacent plane
         for (auto idx : adjacent)
@@ -414,8 +412,16 @@ public:
         }
       }
 
+      // Assign is_ground based on various conditions
+      if (is_horizontal)
+      {
+        cell.is_ground = true;
+      }
+
       // Add unprocessed, adjacent cells to the queue
-      if (cell.is_ground)
+      // Adding for vertical cells gives more complete obstacle data, for
+      //   instance, when the side of a building straddles several cells
+      if (cell.is_ground || is_vertical)
       {
         for (auto idx : adjacent)
         {
@@ -423,9 +429,6 @@ public:
         }
       }
     }
-
-    std::cout << "  processed " << processed_count << " cells"  << std::endl;
-
     // Mark all remaining unprocessed as invalid
     // TODO: is this actually safe to do?
     for (size_t i = 0; i < cells_.size(); ++i)
@@ -452,11 +455,14 @@ public:
   {
     for (auto & cell : cells_)
     {
-      if ((!cell.is_ground) && cell.features_valid)
+      if ((!cell.is_ground) && cell.points->size() > cell.params->min_points)
       {
         cloud += *(cell.points);
       }
-      cloud += *(cell.obstacles);
+      if (cell.obstacles->size() > cell.params->min_points)
+      {
+        cloud += *(cell.obstacles);
+      }
     }
     return true;
   }
@@ -522,6 +528,12 @@ private:
   {
     float angle = acos(Eigen::Vector3f::UnitZ().dot(cell.normal));
     return (angle < cell.params->vertical_tolerance);
+  }
+
+  bool isVertical(GridCell<T> & cell)
+  {
+    float angle = acos(Eigen::Vector3f::UnitZ().dot(cell.normal));
+    return (angle > (1.57 - cell.params->vertical_tolerance));
   }
 
   // @brief Determine if points in "cell" are horizontal enough to "adj"

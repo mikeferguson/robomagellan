@@ -153,7 +153,7 @@ struct GridCell
 
     // Accept filtering
     *points = ground;
-    *obstacles = nonground;
+    *obstacles += nonground;
     // Copy the plane parameters from adjacent
     normal = adj.normal;
     d = adj.d;

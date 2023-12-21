@@ -35,6 +35,7 @@
 #include <pcl_ros/transforms.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <robomagellan/ground_bin_model.hpp>
+#include <robomagellan/ground_grid_model.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -48,30 +49,56 @@ public:
     logger_(rclcpp::get_logger("ground_filter"))
   {
     // Parameters
-    debug_topics_ = this->declare_parameter<bool>("debug_topics", true);  // TODO: make this default false
+    debug_topics_ = this->declare_parameter<bool>("debug_topics", false);
 
-    // Configure bin structure
-    size_t num_rings = this->declare_parameter<int>("num_rings", 7);
-    std::vector<long> sectors =
-      this->declare_parameter<std::vector<long>>("sectors", {4, 16, 16, 32, 32, 32, 32});
-    std::vector<double> margins =
-      this->declare_parameter<std::vector<double>>("margins", {0.125, 1.0, 1.6, 2.4, 3.4, 4.8, 6.4, 8.0});
-
-    if (margins.size() != num_rings + 1 || sectors.size() != num_rings)
+    std::string filter = this->declare_parameter<std::string>("filter_type", "grid");
+    if (filter == "grid")
     {
-      RCLCPP_ERROR(logger_, "Bin structure is malformed");
-      exit(1);
+      // Configure grid size
+      double cell_size = this->declare_parameter<double>("cell_size", 0.5);
+      double grid_size = this->declare_parameter<double>("grid_size", 16.0);
+      std::unique_ptr<GridModel<T>> model = std::make_unique<GridModel<T>>(cell_size, grid_size);
+
+      // Set parameters
+      std::shared_ptr<GridParams> params = std::make_shared<GridParams>();
+      params->min_points = this->declare_parameter<int>("grid_min_points", params->min_points);
+      params->planar_tolerance =
+        this->declare_parameter<double>("grid_planar_tol", params->planar_tolerance);
+      params->vertical_tolerance =
+        this->declare_parameter<double>("grid_vertical_tol", params->vertical_tolerance);
+      double scale = this->declare_parameter<double>("grid_dist_scaling", 0.15);
+      model->setParams(params, scale);
+
+      model_ = std::move(model);
     }
+    else if (filter == "bin")
+    {
+      // Configure bin structure
+      size_t num_rings = this->declare_parameter<int>("num_rings", 7);
+      std::vector<long> sectors =
+        this->declare_parameter<std::vector<long>>("sectors", {4, 16, 16, 32, 32, 32, 32});
+      std::vector<double> margins =
+        this->declare_parameter<std::vector<double>>("margins", {0.125, 1.0, 1.6, 2.4, 3.4, 4.8, 6.4, 8.0});
 
-    bins_ = std::make_unique<BinModel<T>>(num_rings, margins, sectors);
+      if (margins.size() != num_rings + 1 || sectors.size() != num_rings)
+      {
+        RCLCPP_ERROR(logger_, "Bin structure is malformed");
+        exit(1);
+      }
 
-    // Configure bin parameters
-    std::shared_ptr<BinParams> bin_params = std::make_shared<BinParams>();
-    bin_params->min_points = this->declare_parameter<int>("bin_min_points", 10);
-    bin_params->planar_tolerance = this->declare_parameter<double>("bin_planar_tol", 0.2);
-    bin_params->vertical_tolerance = this->declare_parameter<double>("bin_vertical_tol", 0.15);
-    double scale = this->declare_parameter<double>("bin_dist_scaling", 0.05);
-    bins_->setBinParams(bin_params, scale);
+      std::unique_ptr<BinModel<T>> model =
+        std::make_unique<BinModel<T>>(num_rings, margins, sectors);
+
+      // Configure bin parameters
+      std::shared_ptr<BinParams> params = std::make_shared<BinParams>();
+      params->min_points = this->declare_parameter<int>("bin_min_points", 10);
+      params->planar_tolerance = this->declare_parameter<double>("bin_planar_tol", 0.2);
+      params->vertical_tolerance = this->declare_parameter<double>("bin_vertical_tol", 0.2);
+      double scale = this->declare_parameter<double>("bin_dist_scaling", 0.15);
+      model->setBinParams(params, scale);
+
+      model_ = std::move(model);
+    }
 
     // Optionally transform cloud into another frame (usually base_link)
     target_frame_ = this->declare_parameter<std::string>("target_frame", "");
@@ -124,13 +151,13 @@ private:
     }
 
     RCLCPP_INFO(logger_, "Start process");
-    bins_->clear();
-    bins_->addPoints(cloud);
+    model_->clear();
+    model_->addPoints(cloud);
     RCLCPP_INFO(logger_, "End process");
 
     pcl::PointCloud<T> ground_cloud, obstacle_cloud;
-    bins_->getGroundCloud(ground_cloud);
-    bins_->getObstacleCloud(obstacle_cloud);
+    model_->getGroundCloud(ground_cloud);
+    model_->getObstacleCloud(obstacle_cloud);
 
     sensor_msgs::msg::PointCloud2 cloud_msg;
     pcl::toROSMsg(ground_cloud, cloud_msg);
@@ -146,7 +173,7 @@ private:
     if (debug_topics_)
     {
       pcl::PointCloud<pcl::PointXYZRGB> color_cloud;
-      bins_->getColorCloud(color_cloud);
+      model_->getColorCloud(color_cloud);
       sensor_msgs::msg::PointCloud2 color_msg;
       pcl::toROSMsg(color_cloud, color_msg);
       color_msg.header.stamp = msg->header.stamp;
@@ -156,7 +183,7 @@ private:
   }
 
   // Organization
-  std::unique_ptr<BinModel<T>> bins_;
+  std::unique_ptr<GroundModel<T>> model_;
 
   // Parameters
   bool debug_topics_;

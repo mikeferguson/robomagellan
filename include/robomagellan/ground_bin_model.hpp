@@ -250,6 +250,11 @@ public:
     for (size_t i = 0; i < cloud.size(); ++i)
     {
       T point = cloud.points[i];
+      if (point.intensity < 0.001)
+      {
+        // Filter out points that are erroneous
+        continue;
+      }
       double radius = std::hypot(point.x, point.y);
 
       if (radius > ring_margins[0])

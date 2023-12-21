@@ -31,6 +31,7 @@
 
 #include <cmath>
 #include <memory>
+#include <queue>
 #include <vector>
 #include <utility>
 #include <angles/angles.h>
@@ -48,6 +49,10 @@ struct GridParams
 
   // Maximum thickness of ground surface
   double planar_tolerance = 0.05;
+
+  // Maximum distance from vertical plane can be and still be ground
+  // (default is 15 degrees)
+  double vertical_tolerance = 0.2617;
 };
 
 template <typename T>
@@ -66,16 +71,15 @@ struct GridCell
     obstacles->clear();
     is_ground = false;
     features_valid = false;
-    // Reset normal to all zeros
-    normal = Eigen::Vector3f::Zero();
   }
 
-  void process()
+  bool compute()
   {
     if (points->size() < params->min_points)
     {
-      // Cannot make determination at this time
-      return;
+      // Cannot compute features on so few points
+      features_valid = false;
+      return false;
     }
 
     // Extract best fit plane
@@ -88,28 +92,80 @@ struct GridCell
     seg.setInputCloud(points);
     seg.segment(*inliers, *coef);
 
-    // Store the normal for the plane
+    if (inliers->indices.empty())
+    {
+      // Not able to extract plane
+      features_valid = false;
+      return false;
+    }
+
+    // Store the parameters for the plane
     normal(0) = coef->values[0];
     normal(1) = coef->values[1];
     normal(2) = coef->values[2];
+    d = coef->values[3];
 
-    // Extract outliers into obstacles
+    // Extract outliers into obstacles cloud
     pcl::ExtractIndices<T> extract;
     extract.setInputCloud(points);
     extract.setIndices(inliers);
     extract.setNegative(true);
     extract.filter(*obstacles);
 
-    // And then remove outliers from the cloud
+    // And then remove outliers from the points cloud
     extract.setNegative(false);
     extract.filter(*points);
-    
+
     // Compute mean and covariance of remaining points
     pcl::computeMeanAndCovarianceMatrix(*points, covariance, mean);
 
     // Mark features (mean, cov, and normal) as valid
     features_valid = true;
+    return true;
   }
+
+  bool computeViaAdjacent(GridCell<T> & adj)
+  {
+    // Make sure adjacent cell is valid
+    if (!adj.features_valid) return false;
+    if (!adj.is_ground) return false;
+
+    // Split cloud into ground/nonground based on planar fit
+    pcl::PointCloud<T> ground, nonground;
+    for (auto point : *points)
+    {
+      double v = point.x * adj.normal(0) + point.y * adj.normal(1) + point.z * adj.normal(2) + adj.d;
+      if (fabs(v) < 2 * params->planar_tolerance)
+      {
+        ground.push_back(point);
+      }
+      else
+      {
+        nonground.push_back(point);
+      }
+    }
+
+    if (ground.size() < nonground.size())
+    {
+      // Reject this filtering
+      return false;
+    }
+
+    // Accept filtering
+    *points = ground;
+    *obstacles = nonground;
+    // Copy the plane parameters from adjacent
+    normal = adj.normal;
+    d = adj.d;
+    // Compute mean and covariance of remaining points
+    pcl::computeMeanAndCovarianceMatrix(*points, covariance, mean);
+    // Mark features (mean, cov, and normal) as valid
+    features_valid = true;
+    return true;
+  }
+
+  // Indices of this cell
+  size_t x, y;
 
   // The points in the cell that may be part of ground plane
   std::shared_ptr<pcl::PointCloud<T>> points;
@@ -121,8 +177,9 @@ struct GridCell
 
   // Features of the point cloud
   Eigen::Vector4f mean;
-  Eigen::Vector3f normal;
   Eigen::Matrix3f covariance;
+  Eigen::Vector3f normal;
+  double d;
 
   // Parameters to be used for processing
   std::shared_ptr<GridParams> params;
@@ -145,13 +202,13 @@ using GriDCellPtr = std::shared_ptr<GridCell<T>>;
  *  4) Classify the remaining points in each cell as ground or obstacle:
  *     a) Select the non-empty cell as close to the front of the robot as the seed.
  *     b) The seed cell is estimated to be ground solely by the height and normal.
- *     c) Each adjacent cell of the seed is added to the candidate list.
+ *     c) Each adjacent cell of the seed is added to the candidate queue.
  *     d) Mark a candidate as obstacle if any of the following:
  *        i)   There is a significant increase in height compared to adjacent
  *             cells that are marked as ground.
  *        ii)  There is a signficant change in the normal compared to adjacent
  *             cells that are marked as ground.
- *        iii) The covariance indicates that the ground is "rough"
+ *        iii) The covariance indicates that the ground is "rough".
  *        iv)  The cell is empty (and close enough to the sensor for this
  *             condition to apply).
  *     e) If the candidate is classified as ground - add all adjacent, unvisited
@@ -167,36 +224,54 @@ public:
   /**
    * @brief Create a new grid model.
    * @param cell_size Size of cells in x & y (meters).
-   * @param max_extent Maximum distance cells span in x & y (meters).
+   * @param grid_size Maximum distance cells span in x & y (meters).
    */
-  GridModel(double cell_size, double max_extent)
+  GridModel(double cell_size, double grid_size)
   {
     // Store sizes
     cell_size_ = cell_size;
-    x_cells_ = max_extent / cell_size_;
-    y_cells_ = max_extent / cell_size_;
+    x_cells_ = grid_size / cell_size_;
+    y_cells_ = grid_size / cell_size_;
 
-    std::cout << "Grid model: " << cell_size_ << ", " << x_cells_ << ", " << y_cells_ << std::endl;
+    std::cout << "Grid model has " << x_cells_ << "x" << y_cells_ << " cells of " << cell_size_ << "m" << std::endl;
 
     // Allocate storage
-    this->cells_.resize(2 * x_cells_ * 2 * y_cells_);
+    this->cells_.resize(x_cells_ * y_cells_);
+    this->processed_.resize(x_cells_ * y_cells_);
+
+    // Set indices of cells
+    for (size_t x = 0; x < x_cells_; ++x)
+    {
+      for (size_t y = 0; y < y_cells_; ++y)
+      {
+        this->cells_[getIndex(x, y)].x = x;
+        this->cells_[getIndex(x, y)].y = y;
+      }
+    }
   }
 
   /** @brief Clear all cells. */
   void clear()
   {
+    // Clear all points from all cells
     for (auto & cell : cells_)
     {
       cell.clear();
     }
+    // Reset all processed flags
+    std::fill(processed_.begin(), processed_.end(), false);
   }
 
   /** @brief Set the cell parameters. */
-  void setGridParams(std::shared_ptr<GridParams> params)
+  void setParams(std::shared_ptr<GridParams> params, double scaling)
   {
     for (auto & cell : cells_)
     {
-      cell.params = params;
+      double d = std::hypot((cell.x - x_cells_ / 2) * cell_size_,
+                            (cell.y - y_cells_ / 2) * cell_size_);
+      cell.params->min_points = params->min_points;
+      cell.params->planar_tolerance = params->planar_tolerance * (1 + d * scaling);
+      cell.params->vertical_tolerance = params->vertical_tolerance;
     }
   }
 
@@ -207,26 +282,151 @@ public:
     for (size_t i = 0; i < cloud.size(); ++i)
     {
       T point = cloud.points[i];
+      if (point.intensity < 0.001)
+      {
+        // Filter out points that are erroneous
+        continue;
+      }
 
-      int x = (point.x / cell_size_) + x_cells_;
-      int y = (point.y / cell_size_) + y_cells_;
+      int x = (point.x / cell_size_) + (x_cells_ / 2);
+      int y = (point.y / cell_size_) + (y_cells_ / 2);
 
-      if (x >= 0 && x < (2 * x_cells_) &&
-          y >= 0 && y < (2 * y_cells_))
+      if (x >= 0 && x < x_cells_ && y >= 0 && y < y_cells_)
       {
         // Index is valid
-        cells_[x * (2 * x_cells_) + y].points->push_back(point);
+        cells_[getIndex(x, y)].points->push_back(point);
       }
     }
 
     // Compute features in each cell
     for (auto & cell : cells_)
     {
-      cell.process();
+      cell.compute();
     }
 
+    // Queue of cells to be processed - entry is index
+    std::queue<size_t> cell_queue;
+
+    // Find the cell most in front of the robot
+    // Start at center of robot/grid and work forward
+    size_t x_seed = x_cells_ / 2;
+    size_t y_seed = y_cells_ / 2;
+    while (true)
+    {
+      auto & cell = cells_[getIndex(x_seed, y_seed)];
+      if (cell.features_valid)
+      {
+        // TODO: Make sure points are close enough to the ground (need to do calibration first)
+        // Make sure we are vertical enough
+        if (isHorizontal(cell))
+        {
+          // Mark as ground
+          cell.is_ground = true;
+          // Mark processed
+          processed_[getIndex(x_seed, y_seed)] = true;
+          // Insert adjacent cells
+          for (auto adj : getAdjacent(cell))
+          {
+            cell_queue.push(adj);
+          }
+          break;
+        }
+      }
+
+      // This is not a valid seed, move forward
+      if (++x_seed >= x_cells_)
+      {
+        if (++y_seed >= y_cells_)
+        {
+          std::cerr << "No valid seed found!" << std::endl;
+          return;
+        }
+      }
+    }
+
+    size_t processed_count = 1;
+
     // Do classification of ground/obstacles
-    // TODO
+    while (!cell_queue.empty())
+    {
+      // Get cell index - mark cell as processed
+      size_t i = cell_queue.front(); cell_queue.pop();
+      if (processed_[i]) continue;
+      processed_[i] = true;
+      ++processed_count;
+
+      // Get the cell
+      auto & cell = cells_[i];
+
+      // Determine adjacent cells
+      std::vector<size_t> adjacent = getAdjacent(cell);
+
+      // Classification for seed depends on no adjacent cells
+      if (cell.features_valid)
+      {
+        // Various conditions to check
+        bool is_horizontal = false;
+        // TODO: compute is_step
+        // TODO: compute is_rough
+
+        // Determine if plane is vertical enough
+        is_horizontal = isHorizontal(cell);
+        if (!is_horizontal)
+        {
+          // Compare to neighbors
+          for (auto idx : adjacent)
+          {
+            auto & adj = cells_[idx];
+            if (isHorizontalToAdjacent(cell, adj))
+            {
+              is_horizontal = true;
+              break;
+            }
+          }
+        }
+
+        // Assign is_ground
+        if (is_horizontal)
+        {
+          cell.is_ground = true;
+        }
+      }
+      else if (cell.points->empty())
+      {
+        // TODO: add drop detection for empty cells near robot
+      }
+      else
+      {
+        // Attempt to connect these points to an adjacent plane
+        for (auto idx : adjacent)
+        {
+          auto & adj = cells_[idx];
+          if (cell.computeViaAdjacent(adj))
+          {
+            cell.is_ground = true;
+            break;
+          }
+        }
+      }
+
+      // Add unprocessed, adjacent cells to the queue
+      if (cell.is_ground)
+      {
+        for (auto idx : adjacent)
+        {
+          if (!processed_[idx]) cell_queue.push(idx);
+        }
+      }
+    }
+
+    std::cout << "  processed " << processed_count << " cells"  << std::endl;
+
+    // Mark all remaining unprocessed as invalid
+    // TODO: is this actually safe to do?
+    for (size_t i = 0; i < cells_.size(); ++i)
+    {
+      if (!processed_[i]) cells_[i].features_valid = false;
+    }
   }
 
   /** @brief Get a point cloud of all ground points. */
@@ -247,7 +447,7 @@ public:
   {
     for (auto & cell : cells_)
     {
-      if (!cell.is_ground)
+      if ((!cell.is_ground) && cell.features_valid)
       {
         cloud += *(cell.points);
       }
@@ -285,7 +485,51 @@ public:
   }
 
 private:
+  size_t getIndex(size_t x, size_t y)
+  {
+    return (x * x_cells_) + y;
+  }
+
+  std::vector<size_t> getAdjacent(GridCell<T> & cell)
+  {
+    std::vector<size_t> adj;
+    if (cell.x > 0)
+    {
+      adj.push_back(getIndex(cell.x - 1, cell.y));
+    }
+    if (cell.y > 0)
+    {
+      adj.push_back(getIndex(cell.x, cell.y - 1));
+    }
+    if (cell.x < x_cells_ - 1)
+    {
+      adj.push_back(getIndex(cell.x + 1, cell.y));
+    }
+    if (cell.y < y_cells_ - 1)
+    {
+      adj.push_back(getIndex(cell.x, cell.y + 1));
+    }
+    return adj;
+  }
+
+  // @brief Determine if points in cell form a horizontal plane
+  bool isHorizontal(GridCell<T> & cell)
+  {
+    float angle = acos(Eigen::Vector3f::UnitZ().dot(cell.normal));
+    return (angle < cell.params->vertical_tolerance);
+  }
+
+  // @brief Determine if points in "cell" are horizontal enough to "adj"
+  bool isHorizontalToAdjacent(GridCell<T> & cell, GridCell<T> & adj)
+  {
+    if (!adj.features_valid) return false;
+    if (!adj.is_ground) return false;
+    float angle = acos(adj.normal.dot(cell.normal));
+    return (angle < cell.params->vertical_tolerance);
+  }
+
   std::vector<GridCell<T>> cells_;
+  std::vector<bool> processed_;
   double cell_size_;
   size_t x_cells_, y_cells_;
 };

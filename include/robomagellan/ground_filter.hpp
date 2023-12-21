@@ -66,7 +66,7 @@ public:
         this->declare_parameter<double>("grid_planar_tol", params->planar_tolerance);
       params->vertical_tolerance =
         this->declare_parameter<double>("grid_vertical_tol", params->vertical_tolerance);
-      double scale = this->declare_parameter<double>("grid_dist_scaling", 0.15);
+      double scale = this->declare_parameter<double>("grid_dist_scaling", 0.25);
       model->setParams(params, scale);
 
       model_ = std::move(model);

@@ -135,7 +135,7 @@ struct GridCell
     for (auto point : *points)
     {
       double v = point.x * adj.normal(0) + point.y * adj.normal(1) + point.z * adj.normal(2) + adj.d;
-      if (fabs(v) < 2 * params->planar_tolerance)
+      if (fabs(v) < params->planar_tolerance)
       {
         ground.push_back(point);
       }
@@ -265,12 +265,17 @@ public:
   /** @brief Set the cell parameters. */
   void setParams(std::shared_ptr<GridParams> params, double scaling)
   {
+    std::cout << "Setting grid params to:" << std::endl;
+    std::cout << "  Min Points:         " << params->min_points << std::endl;
+    std::cout << "  Planar Tolerance:   " << params->planar_tolerance << std::endl;
+    std::cout << "  Vertical Tolerance: " << params->vertical_tolerance << std::endl;
     for (auto & cell : cells_)
     {
-      double d = std::hypot((cell.x - x_cells_ / 2) * cell_size_,
-                            (cell.y - y_cells_ / 2) * cell_size_);
+      double d = std::hypot((static_cast<int>(cell.x) - static_cast<int>(x_cells_ / 2)) * cell_size_,
+                            (static_cast<int>(cell.y) - static_cast<int>(y_cells_ / 2)) * cell_size_);
+      d = std::max(1.0, d);
       cell.params->min_points = params->min_points;
-      cell.params->planar_tolerance = params->planar_tolerance * (1 + d * scaling);
+      cell.params->planar_tolerance = params->planar_tolerance * (1.0 + d * scaling);
       cell.params->vertical_tolerance = params->vertical_tolerance;
     }
   }

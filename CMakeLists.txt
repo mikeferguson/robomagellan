@@ -10,6 +10,7 @@ find_package(pcl_ros REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -41,6 +42,18 @@ ament_target_dependencies(ground_filter
   pcl_ros
   rclcpp
   sensor_msgs
+  tf2_geometry_msgs
+  tf2_ros
+)
+
+add_executable(rolling_ground_filter src/rolling_ground_filter.cpp)
+ament_target_dependencies(rolling_ground_filter
+  angles
+  pcl_conversions
+  pcl_ros
+  rclcpp
+  sensor_msgs
+  tf2_geometry_msgs
   tf2_ros
 )
 
@@ -68,6 +81,7 @@ install(
   TARGETS
     gps_to_cart
     ground_filter
+    rolling_ground_filter
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

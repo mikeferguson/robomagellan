@@ -41,7 +41,7 @@ fixed_lag_global:
       angular_velocity_dimensions: ['yaw']
 
     imu_sensor:
-      topic: 'imu_um7/data'
+      topic: 'imu/data'
       twist_target_frame: 'base_link'
       angular_velocity_dimensions: ['yaw']
 

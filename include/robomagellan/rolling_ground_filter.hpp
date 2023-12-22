@@ -36,11 +36,7 @@
 #include <utility>
 #include <angles/angles.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/ModelCoefficients.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/common/pca.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/transforms.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -49,6 +45,12 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+template <typename T>
+bool sortByZ(T & a, T & b)
+{
+  return a.z < b.z;
+}
 
 struct RollingGridParams
 {
@@ -127,61 +129,71 @@ struct RollingGridCell
    */
   void compute()
   {
-    if (points->size() < params->min_points)
+    // Attempt to filter points by best fit plane
+    /*if ((points->size() < params->min_points) || !filterByBottumUpPCA())
     {
       if (valid)
       {
         // We already have a model of the ground plane to filter with
-        filterByPlane(normal, d);
+        filterByPlane(normal, d, true);
       }
-    }
-    else
-    {
-      // Extract best fit plane
-      valid |= filterByRANSAC();
-    }
+      else if (n > 0)
+      {
+        // We at least have a mean - assume normal is vertical
+        double temp_d = -(normal.transpose() * mean)(0, 0);
+        filterByPlane(normal, temp_d, true);
+      }
+    }*/
+
     // Update mean and correlation from remaining ground points
     updateMeanAndCorrelation();
   }
 
-  bool filterByRANSAC()
+  bool filterByBottumUpPCA()
   {
-    // Extract best fit plane
-    pcl::ModelCoefficients::Ptr coef(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    pcl::SACSegmentation<T> seg;
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(params->planar_tolerance);
-    seg.setInputCloud(points);
-    seg.segment(*inliers, *coef);
+    // Sort points by z height
+    std::sort(points->begin(), points->end(), sortByZ<T>);
 
-    if (inliers->indices.empty())
+    // Get initial set of inliers
+    std::shared_ptr<pcl::PointCloud<T>> inliers = std::make_shared<pcl::PointCloud<T>>();
+    for (size_t i = 0; i < params->min_points; ++i)
     {
-      // Reject this filtering
+      inliers->push_back(points->points[i]);
+    }
+
+    // Calculate plane by PCA
+    pcl::PCA<T> pca;
+    pca.setInputCloud(inliers);
+    Eigen::Vector4f new_mean4 = pca.getMean();
+    Eigen::Vector3f new_mean = new_mean4.head<3>();
+    Eigen::Vector3f new_normal = pca.getEigenVectors().col(2);
+    if (new_normal(2) < 0) new_normal *= -1.0;
+    double new_d = -(new_normal.transpose() * new_mean)(0, 0);
+
+    // Don't lift the ground plane for moving obstacles
+    if (valid && (new_mean(2) - mean(2) > 0.75))  // TODO: use 3 * cell_size
+    {
       return false;
     }
 
-    // Store the parameters for the plane
-    normal(0) = coef->values[0];
-    normal(1) = coef->values[1];
-    normal(2) = coef->values[2];
-    d = coef->values[3];
+    if (valid && (new_mean(2) - mean(2) < -0.25))
+    {
+      // Significantly better mean - clear existing statistics
+      n = 0;
+      correlation = Eigen::Matrix3f::Zero();
+      mean = Eigen::Vector3f::Zero();
+    }
 
     // Extract outliers into obstacles cloud
-    pcl::ExtractIndices<T> extract;
-    extract.setInputCloud(points);
-    extract.setIndices(inliers);
-    extract.setNegative(true);
-    extract.filter(*obstacles);
+    filterByPlane(new_normal, new_d, true);
+    normal = new_normal;
+    d = new_d;
+    valid = true;
 
-    // And then remove outliers from the points cloud
-    extract.setNegative(false);
-    extract.filter(*points);
     return true;
   }
 
-  bool filterByPlane(Eigen::Vector3f normal, double d)
+  bool filterByPlane(Eigen::Vector3f normal, double d, bool force_accept=false)
   {
     // Split points into ground/nonground based on planar fit
     pcl::PointCloud<T> ground, nonground;
@@ -198,7 +210,7 @@ struct RollingGridCell
       }
     }
 
-    if (ground.size() < nonground.size())
+    if (!force_accept && (ground.size() < nonground.size()))
     {
       // Reject this filtering
       return false;
@@ -479,12 +491,12 @@ public:
     {
       if ((!cell.is_ground) && cell.points->size() > cell.params->min_points)
       {
-        cloud += *(cell.points);
+        //cloud += *(cell.points);
       }
-      if (cell.obstacles->size() > cell.params->min_points)
-      {
-      cloud += *(cell.obstacles);
-      }
+      //if (cell.obstacles->size() > cell.params->min_points)
+      //{
+        cloud += *(cell.obstacles);
+      //}
     }
     return true;
   }
@@ -527,7 +539,7 @@ public:
         point.x = cell.mean(0);
         point.y = cell.mean(1);
         point.z = cell.mean(2);
-        point.intensity = 1.0;
+        point.intensity = std::max(std::min(static_cast<double>(point.z) + 1.0, 2.0), 0.0);
         cloud.push_back(point);
       }
     }

@@ -53,17 +53,13 @@ bool sortByZ(T & a, T & b)
   return a.z < b.z;
 }
 
-struct GridParams
+struct CellParams
 {
   // Minimum number of points to build internal model
   size_t min_points = 8;
 
   // Maximum thickness of ground surface
   double planar_tolerance = 0.1;
-
-  // Maximum distance from vertical plane can be and still be ground
-  // (default is 15 degrees)
-  double vertical_tolerance = 0.2617;
 };
 
 /**
@@ -83,7 +79,7 @@ struct GridCell
   {
     points = std::make_shared<pcl::PointCloud<T>>();
     obstacles = std::make_shared<pcl::PointCloud<T>>();
-    params = std::make_shared<GridParams>();
+    params = std::make_shared<CellParams>();
     n = 0;
     mean = Eigen::Vector3f::Zero();
     correlation = Eigen::Matrix3f::Zero();
@@ -222,7 +218,7 @@ struct GridCell
   bool covariance_valid;
 
   // Parameters to be used for processing
-  std::shared_ptr<GridParams> params;
+  std::shared_ptr<CellParams> params;
 };
 
 template <typename T>
@@ -247,6 +243,16 @@ public:
 
     // Allocate storage
     this->cells_.resize(x_cells_ * y_cells_);
+  }
+
+  /** @brief Set the parameters to use in each cell. */
+  void setParams(std::shared_ptr<CellParams> params)
+  {
+    params_ = params;
+    for (auto & cell : cells_)
+    {
+      cell.params = params_;
+    }
   }
 
   /** @brief Set the robot pose. */
@@ -279,6 +285,7 @@ public:
           {
             scratch[getIndex(i, j)] = cells_[getIndex(xx, yy)];
           }
+          scratch[getIndex(i, j)].params = params_;
         }
       }
       std::swap(scratch, cells_);
@@ -477,6 +484,12 @@ public:
     return true;
   }
 
+  /**
+   * @brief Get a cloud with one point per cell. Point is located at mean.
+   * @param cloud Returned cloud of points.
+   * @param two_sigma If true, the returned Z height will be the mean plus two times
+   *                  the variance in the Z axis.
+   */
   bool getElevationCloud(pcl::PointCloud<T> & cloud, bool two_sigma = false)
   {
     cloud.points.clear();
@@ -531,6 +544,7 @@ private:
   }
 
   std::vector<GridCell<T>> cells_;
+  std::shared_ptr<CellParams> params_;
   // Size of the grid
   double cell_size_;
   size_t x_cells_, y_cells_;
@@ -549,9 +563,16 @@ public:
     // Parameters
     debug_topics_ = this->declare_parameter<bool>("debug_topics", false);
 
-    double cell_size = this->declare_parameter<double>("cell_size", 0.25);
+    double cell_size = this->declare_parameter<double>("cell_size", 0.125);
     double grid_size = this->declare_parameter<double>("grid_size", 16.0);
     model_ = std::make_unique<GridModel<T>>(cell_size, grid_size);
+
+    // Set parameters
+    std::shared_ptr<CellParams> params = std::make_shared<CellParams>();
+    params->min_points = this->declare_parameter<int>("cell.min_points", params->min_points);
+    params->planar_tolerance =
+      this->declare_parameter<double>("cell.planar_tolerance", params->planar_tolerance);
+    model_->setParams(params);
 
     robot_frame_ = this->declare_parameter<std::string>("robot_frame", "base_link");
     fixed_frame_ = this->declare_parameter<std::string>("fixed_frame", "odom");
@@ -684,7 +705,7 @@ private:
     }
   }
 
-  // Organization
+  // Data modeling
   std::unique_ptr<GridModel<T>> model_;
 
   // Parameters

@@ -1,10 +1,14 @@
 ground_filter:
   ros__parameters:
-    bin_dist_scaling: 0.5
-    bin_vertical_tol: 0.15
-    bin_planar_tol: 0.15
-    target_frame: 'base_link'
+    robot_frame: 'base_link'
+    fixed_frame: 'odom'
+    transform_timeout: 0.2
 
-    num_rings: 7
-    sectors: [4, 16, 16, 32, 32, 32, 32]
-    margins: [0.125, 1.0, 1.6, 2.4, 3.4, 4.8, 6.4, 8.0]
+    cell_size: 0.125
+    grid_size: 16.0
+    cell:
+      min_points: 8
+      planar_tolerance: 0.1
+
+    # TODO: turn this off for competition
+    debug_topics: true

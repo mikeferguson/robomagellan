@@ -71,7 +71,6 @@ struct RollingGridCell
     points = std::make_shared<pcl::PointCloud<T>>();
     obstacles = std::make_shared<pcl::PointCloud<T>>();
     params = std::make_shared<RollingGridParams>();
-    cycles = 0;
     n = 0;
     mean = Eigen::Vector3f::Zero();
     covariance = Eigen::Matrix3f::Zero();
@@ -92,7 +91,6 @@ struct RollingGridCell
       this->covariance = other.covariance;
       this->correlation = other.correlation;
       this->valid = other.valid;
-      this->cycles = other.cycles;
     }
   }
 
@@ -124,7 +122,6 @@ struct RollingGridCell
 
   bool compute()
   {
-    ++cycles;
     if (valid || n < 3)
     {
       return false;
@@ -143,9 +140,6 @@ struct RollingGridCell
     valid = true;
     return true;
   }
-
-  // TODO REMOVE
-  int cycles;
 
   // The points in the cell that may be part of ground plane
   std::shared_ptr<pcl::PointCloud<T>> points;
@@ -341,7 +335,7 @@ public:
         point.x = cell.mean(0);
         point.y = cell.mean(1);
         point.z = cell.mean(2);
-        point.intensity = static_cast<float>(cell.cycles) / 50.0;
+        point.intensity = 1.0;
         cloud.push_back(point);
       }
     }

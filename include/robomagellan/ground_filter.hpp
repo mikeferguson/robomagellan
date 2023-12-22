@@ -59,7 +59,7 @@ struct CellParams
   size_t min_points = 8;
 
   // Maximum thickness of ground surface
-  double planar_tolerance = 0.1;
+  double planar_tolerance = 0.05;
 };
 
 /**
@@ -419,8 +419,6 @@ public:
         double step = cell.mean(2) - adj_cell.mean(2);
         cell.step_height = std::min(cell.step_height, step);
       }
-
-      // TODO: Compute slope feature?
 
       // Classify as ground or not
       if (fabs(cell.step_height) < cell.params->planar_tolerance)

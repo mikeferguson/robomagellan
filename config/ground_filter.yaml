@@ -8,7 +8,7 @@ ground_filter:
     grid_size: 16.0
     cell:
       min_points: 8
-      planar_tolerance: 0.1
+      planar_tolerance: 0.05
 
     # TODO: turn this off for competition
     debug_topics: true

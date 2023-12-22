@@ -30,13 +30,14 @@
 #define ROBOMAGELLAN__ROLLING_GROUND_FILTER_HPP_
 
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <queue>
 #include <vector>
 #include <utility>
 #include <angles/angles.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <pcl/common/pca.h>
+#include <pcl/filters/radius_outlier_removal.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/transforms.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -73,7 +74,7 @@ struct RollingGridParams
  * Usage is basically:
  *  - clear() which removes old points, but keeps the ground plane information
  *  - addPoint() for each set of points in cell
- *  - compute()
+ *  - compute() which actually updates computed features
  */
 template <typename T>
 struct RollingGridCell
@@ -85,11 +86,9 @@ struct RollingGridCell
     params = std::make_shared<RollingGridParams>();
     n = 0;
     mean = Eigen::Vector3f::Zero();
-    covariance = Eigen::Matrix3f::Zero();
     correlation = Eigen::Matrix3f::Zero();
-    normal = Eigen::Vector3f(0, 0, 1);
-    d = 0;
-    valid = false;
+    covariance = Eigen::Matrix3f::Zero();
+    covariance_valid = false;
   }
 
   void operator=(const RollingGridCell& other)
@@ -97,24 +96,21 @@ struct RollingGridCell
     if (this != &other)
     {
       this->points = other.points;
-      this->obstacles = other.obstacles;
       this->params = other.params;
       this->is_ground = other.is_ground;
       this->n = other.n;
       this->mean = other.mean;
-      this->covariance = other.covariance;
       this->correlation = other.correlation;
-      this->valid = other.valid;
+      this->covariance = other.covariance;
+      this->covariance_valid = other.covariance_valid;
     }
   }
 
-  // @brief Called at the beginning of each update cycle
+  /** @brief Called at the beginning of each update cycle. */
   void clear()
   {
     points->clear();
     obstacles->clear();
-    is_horizontal = false;
-    is_coplanar = false;
     is_ground = false;
   }
 
@@ -124,106 +120,10 @@ struct RollingGridCell
     points->push_back(point);
   }
 
-  /**
-   * @brief Update estimation of ground plane, filter obstacles.
-   */
+  /** @brief Update computed features. */
   void compute()
   {
-    // Attempt to filter points by best fit plane
-    /*if ((points->size() < params->min_points) || !filterByBottumUpPCA())
-    {
-      if (valid)
-      {
-        // We already have a model of the ground plane to filter with
-        filterByPlane(normal, d, true);
-      }
-      else if (n > 0)
-      {
-        // We at least have a mean - assume normal is vertical
-        double temp_d = -(normal.transpose() * mean)(0, 0);
-        filterByPlane(normal, temp_d, true);
-      }
-    }*/
-
-    // Update mean and correlation from remaining ground points
-    updateMeanAndCorrelation();
-  }
-
-  bool filterByBottumUpPCA()
-  {
-    // Sort points by z height
-    std::sort(points->begin(), points->end(), sortByZ<T>);
-
-    // Get initial set of inliers
-    std::shared_ptr<pcl::PointCloud<T>> inliers = std::make_shared<pcl::PointCloud<T>>();
-    for (size_t i = 0; i < params->min_points; ++i)
-    {
-      inliers->push_back(points->points[i]);
-    }
-
-    // Calculate plane by PCA
-    pcl::PCA<T> pca;
-    pca.setInputCloud(inliers);
-    Eigen::Vector4f new_mean4 = pca.getMean();
-    Eigen::Vector3f new_mean = new_mean4.head<3>();
-    Eigen::Vector3f new_normal = pca.getEigenVectors().col(2);
-    if (new_normal(2) < 0) new_normal *= -1.0;
-    double new_d = -(new_normal.transpose() * new_mean)(0, 0);
-
-    // Don't lift the ground plane for moving obstacles
-    if (valid && (new_mean(2) - mean(2) > 0.75))  // TODO: use 3 * cell_size
-    {
-      return false;
-    }
-
-    if (valid && (new_mean(2) - mean(2) < -0.25))
-    {
-      // Significantly better mean - clear existing statistics
-      n = 0;
-      correlation = Eigen::Matrix3f::Zero();
-      mean = Eigen::Vector3f::Zero();
-    }
-
-    // Extract outliers into obstacles cloud
-    filterByPlane(new_normal, new_d, true);
-    normal = new_normal;
-    d = new_d;
-    valid = true;
-
-    return true;
-  }
-
-  bool filterByPlane(Eigen::Vector3f normal, double d, bool force_accept=false)
-  {
-    // Split points into ground/nonground based on planar fit
-    pcl::PointCloud<T> ground, nonground;
-    for (auto point : *points)
-    {
-      double v = point.x * normal(0) + point.y * normal(1) + point.z * normal(2) + d;
-      if (fabs(v) < params->planar_tolerance)
-      {
-        ground.push_back(point);
-      }
-      else
-      {
-        nonground.push_back(point);
-      }
-    }
-
-    if (!force_accept && (ground.size() < nonground.size()))
-    {
-      // Reject this filtering
-      return false;
-    }
-
-    // Accept filtering
-    *points = ground;
-    *obstacles += nonground;
-    return true;
-  }
-
-  void updateMeanAndCorrelation()
-  {
+    // Update mean and correlation
     for (auto & point : *points)
     {
       Eigen::Vector3f p(point.x, point.y, point.z);
@@ -237,38 +137,79 @@ struct RollingGridCell
       }
       n += 1;
     }
-    updateCovariance();
-  }
 
-  void updateCovariance()
-  {
-    const double scale = n / (n - 1);
-    for (size_t i = 0; i < 3; ++i)
+    // Compute covariance, if enough points
+    if (n > 3)
     {
-      for (size_t j = i; j < 3; ++j)
+      const double scale = n / (n - 1);
+      for (size_t i = 0; i < 3; ++i)
       {
-        covariance(i, j) = (correlation(i, j) - (mean(i) * mean(j))) * scale;
-        covariance(j, i) = covariance(i, j);
+        for (size_t j = i; j < 3; ++j)
+        {
+          covariance(i, j) = (correlation(i, j) - (mean(i) * mean(j))) * scale;
+          covariance(j, i) = covariance(i, j);
+        }
       }
+      covariance_valid = true;
     }
   }
 
-  // Condition varibles
-  bool is_horizontal;
-  bool is_coplanar;
+  /** @brief Filter points into ground and obstacles. */
+  void filter()
+  {
+    // Need points to filter
+    if (n == 0) return;
+
+    // Threshold is the larger of planar_tolerance and 95% confidence interval
+    double thresh = params->planar_tolerance;
+    if (covariance_valid)
+    {
+      double z_sigma = fabs(sqrt(covariance(2, 2)));
+      thresh = std::max(thresh, 2 * z_sigma);
+    }
+
+    // Now filter points in ground/obstacle clouds
+    std::shared_ptr<pcl::PointCloud<T>> ground = std::make_shared<pcl::PointCloud<T>>();
+    if (is_ground)
+    {
+      for (auto & point : *points)
+      {
+        double z = point.z - mean(2);
+        if (fabs(z) > thresh)
+        {
+          obstacles->push_back(point);
+        }
+        else
+        {
+          ground->push_back(point);
+        }
+      }
+      // Store ground points
+      std::swap(points, ground);
+    }
+    else
+    {
+      // All points are obstacles
+      *obstacles += *points;
+      points->clear();
+    }
+
+    // Remove stray obstacles (real obstacles will have MANY points)
+    if (obstacles->size() < params->min_points)
+    {
+      obstacles->clear();
+    }
+  }
+
+  // Computed features of this cell
   bool is_ground;
-
-  // Scratchpad
   bool is_visited;
+  double dist_to_sensor;
+  double step_height;
 
-  // The points in the cell that may be part of ground plane
+  // Points for this iteration that land in this particular cell
   std::shared_ptr<pcl::PointCloud<T>> points;
-
-  // The points in this cell that are obstacles
   std::shared_ptr<pcl::PointCloud<T>> obstacles;
-
-  // Are features valid
-  bool valid;
 
   // Number of points that have fallen into this grid cell
   // Technically this should be size_t - but for Eigen math, needs to be double
@@ -276,12 +217,9 @@ struct RollingGridCell
 
   // Features of point cloud, valid when n > 0
   Eigen::Vector3f mean;
-  Eigen::Matrix3f covariance;
   Eigen::Matrix3f correlation;
-
-  // Features of point cloud, valid when valid=true
-  Eigen::Vector3f normal;
-  double d;
+  Eigen::Matrix3f covariance;
+  bool covariance_valid;
 
   // Parameters to be used for processing
   std::shared_ptr<RollingGridParams> params;
@@ -360,19 +298,36 @@ public:
     }
   }
 
+  /** @brief Filter out pure noise. */
+  void applyRadiusFilter(std::shared_ptr<pcl::PointCloud<T>> & cloud)
+  {
+    // Remove bad intensity points
+    std::shared_ptr<pcl::PointCloud<T>> temp = std::make_shared<pcl::PointCloud<T>>();
+    for (auto point : cloud->points)
+    {
+      if (point.intensity > 0.001) temp->push_back(point);
+    }
+
+    // Clean out before filtering back into the original cloud
+    cloud->clear();
+
+    // Filter points for pure noise
+    {
+      pcl::RadiusOutlierRemoval<T> ror_filter;
+      ror_filter.setInputCloud(temp);
+      ror_filter.setRadiusSearch(0.15);
+      ror_filter.setMinNeighborsInRadius(1);
+      ror_filter.setNegative(false);
+      ror_filter.filter(*cloud);
+    }
+  }
+
   /** @brief Add points from a cloud. */
-  void addPoints(pcl::PointCloud<T> & cloud)
+  void addPoints(std::shared_ptr<pcl::PointCloud<T>> & cloud)
   {
     // Insert points into bins
-    for (size_t i = 0; i < cloud.size(); ++i)
+    for (auto point : cloud->points)
     {
-      T point = cloud.points[i];
-      if (point.intensity < 0.001)
-      {
-        // Filter out points that are erroneous
-        continue;
-      }
-
       int x = (point.x - x_origin_)/ cell_size_;
       int y = (point.y - y_origin_)/ cell_size_;
 
@@ -383,91 +338,94 @@ public:
       }
     }
 
-    // Queue of cells to processed - entry is index
+    // Precompute
+    double sensor_x = x_origin_ + (x_cells_ / 2) * cell_size_;
+    double sensor_y = y_origin_ + (y_cells_ / 2) * cell_size_;
+
+    // Update cell computation with new points
+    for (auto & cell : cells_)
+    {
+      cell.compute();
+      if (cell.n > 0)
+      {
+        double dx = cell.mean(0) - sensor_x;
+        double dy = cell.mean(1) - sensor_y;
+        cell.dist_to_sensor = std::hypot(dx, dy);
+      }
+      cell.is_visited = false;
+      cell.is_ground = false;
+    }
+
+    // Queue of cells to be processed - entry is index
     std::queue<size_t> cell_queue;
 
-    // Compute features in each cell
-    // First pass - classify as horizontal solely based on verticalness of normal
-    for (size_t i = 0; i < cells_.size(); ++i)
-    {
-      auto & cell = cells_[i];
-      cell.compute();
-      cell.is_horizontal = cell.valid && isHorizontal(cell);
-      if (cell.is_horizontal)
-      {
-        cell_queue.push(i);
-      }
-    }
-
-    // Second pass - widen horizontal classification using adjacent cells
-    while (!cell_queue.empty())
-    {
-      // Get index of horizontal cell
-      size_t i = cell_queue.front(); cell_queue.pop();
-
-      // Get the horizontal cell
-      auto & horiz_cell = cells_[i];
-      std::vector<size_t> adj_cell_indices = getAdjacent(i);
-      for (auto j : adj_cell_indices)
-      {
-        auto & adj_cell = cells_[j];
-        if (!adj_cell.is_horizontal)
-        {
-          if (isHorizontalToAdjacent(adj_cell, horiz_cell))
-          {
-            adj_cell.is_horizontal = true;
-            cell_queue.push(j);
-          }
-        }
-      }
-    }
-
-    // Third pass - start at center cells and work out
-    markAllUnvisited();
+    // Iterate out from the sensor, computing if cells are ground
     cell_queue.push(getIndex(x_cells_ / 2, y_cells_ / 2));
     while (!cell_queue.empty())
     {
-      // Get index of cell to examine
+      // Get cell index
       size_t i = cell_queue.front(); cell_queue.pop();
 
-      // Get cell information, mark visited
+      // Get cell, mark as visited
       auto & cell = cells_[i];
       if (cell.is_visited) continue;
       cell.is_visited = true;
 
-      std::vector<size_t> adj_cell_indices = getAdjacent(i);
-
-      if (!cell.is_horizontal)
-      {
-        // See if cell mean can be explained by adjacent cell plane
-        for (auto j : adj_cell_indices)
-        {
-          auto & adj_cell = cells_[j];
-          if (!adj_cell.valid) continue;
-          if (!adj_cell.is_horizontal) continue;
-          if (cell.filterByPlane(adj_cell.normal, adj_cell.d))
-          {
-            cell.is_coplanar = true;
-            break;
-          }
-        }
-      }
-
-      for (auto j : adj_cell_indices)
+      // Push back adjacent cells
+      std::vector<size_t> adjacent = getAdjacent(i);
+      bool has_visited_adjacent = false;
+      for (auto j : adjacent)
       {
         auto & adj_cell = cells_[j];
-        if (!adj_cell.is_visited)
+        if (adj_cell.is_visited)
+        {
+          if (adj_cell.n > 0) has_visited_adjacent = true;
+        }
+        else
         {
           cell_queue.push(j);
         }
       }
+
+      if (cell.n == 0)
+      {
+        // TODO: handle drop detection
+        continue;
+      }
+
+      if (!has_visited_adjacent)
+      {
+        if (cell.mean(2) < cell.params->planar_tolerance)
+        {
+          cell.is_ground = true;
+        }
+        continue;
+      }
+
+      // Compute step height feature
+      cell.step_height = std::numeric_limits<double>::max();
+      for (auto j : adjacent)
+      {
+        auto & adj_cell = cells_[j];
+        if (adj_cell.n == 0) continue;
+        if (!adj_cell.is_ground) continue;
+        double step = cell.mean(2) - adj_cell.mean(2);
+        cell.step_height = std::min(cell.step_height, step);
+      }
+
+      // TODO: Compute slope feature?
+
+      // Classify as ground or not
+      if (fabs(cell.step_height) < cell.params->planar_tolerance)
+      {
+        cell.is_ground = true;
+      }
     }
 
-    // Classify cells as ground or not
+    // Cells are classified - now filter cloud into ground and obstacles
     for (auto & cell : cells_)
     {
-      // TODO: apply other criteria
-      cell.is_ground = (cell.is_horizontal); // || cell.is_coplanar);
+      cell.filter();
     }
   }
 
@@ -476,10 +434,7 @@ public:
   {
     for (auto & cell : cells_)
     {
-      if (cell.is_ground)
-      {
-        cloud += *(cell.points);
-      }
+      cloud += *(cell.points);
     }
     return true;
   }
@@ -489,14 +444,7 @@ public:
   {
     for (auto & cell : cells_)
     {
-      if ((!cell.is_ground) && cell.points->size() > cell.params->min_points)
-      {
-        //cloud += *(cell.points);
-      }
-      //if (cell.obstacles->size() > cell.params->min_points)
-      //{
-        cloud += *(cell.obstacles);
-      //}
+      cloud += *(cell.obstacles);
     }
     return true;
   }
@@ -529,8 +477,9 @@ public:
     return true;
   }
 
-  bool getMeanCloud(pcl::PointCloud<T> & cloud)
+  bool getElevationCloud(pcl::PointCloud<T> & cloud, bool two_sigma = false)
   {
+    cloud.points.clear();
     for (auto & cell : cells_)
     {
       if (cell.n > 0)
@@ -539,6 +488,10 @@ public:
         point.x = cell.mean(0);
         point.y = cell.mean(1);
         point.z = cell.mean(2);
+        if (two_sigma && cell.covariance_valid)
+        {
+          point.z += 2 * fabs(sqrt(cell.covariance(2, 2)));
+        }
         point.intensity = std::max(std::min(static_cast<double>(point.z) + 1.0, 2.0), 0.0);
         cloud.push_back(point);
       }
@@ -547,14 +500,6 @@ public:
   }
 
 private:
-  void markAllUnvisited()
-  {
-    for (auto & cell : cells_)
-    {
-      cell.is_visited = false;
-    }
-  }
-
   size_t getIndex(size_t x, size_t y)
   {
     return (x * x_cells_) + y;
@@ -585,28 +530,6 @@ private:
     return adj;
   }
 
-  // @brief Determine if points in cell form a horizontal plane
-  bool isHorizontal(RollingGridCell<T> & cell)
-  {
-    float angle = acos(Eigen::Vector3f::UnitZ().dot(cell.normal));
-    return (angle < cell.params->vertical_tolerance);
-  }
-
-  bool isVertical(RollingGridCell<T> & cell)
-  {
-    float angle = acos(Eigen::Vector3f::UnitZ().dot(cell.normal));
-    return (angle > (1.57 - cell.params->vertical_tolerance));
-  }
-
-  // @brief Determine if points in "cell" are horizontal enough to "adj"
-  bool isHorizontalToAdjacent(RollingGridCell<T> & cell, RollingGridCell<T> & adj)
-  {
-    if (!adj.valid || !cell.valid) return false;
-    if (!adj.is_horizontal) return false;
-    float angle = acos(adj.normal.dot(cell.normal));
-    return (angle < cell.params->vertical_tolerance);
-  }
-
   std::vector<RollingGridCell<T>> cells_;
   // Size of the grid
   double cell_size_;
@@ -623,7 +546,6 @@ public:
   : rclcpp::Node("ground_filter"),
     logger_(rclcpp::get_logger("ground_filter"))
   {
-
     // Parameters
     debug_topics_ = this->declare_parameter<bool>("debug_topics", false);
 
@@ -648,7 +570,9 @@ public:
     if (debug_topics_)
     {
       colored_cell_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("colored_cells", qos);
-      mean_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mean", qos);
+      elevation_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("elevation", qos);
+      two_sigma_elevation_pub_ =
+        this->create_publisher<sensor_msgs::msg::PointCloud2>("elevation_two_sigma", qos);
     }
 
     // Subscribe the incoming point cloud message
@@ -660,15 +584,18 @@ public:
 private:
   void cloudCb(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
   {
-    pcl::PointCloud<T> cloud;
-    pcl::fromROSMsg(*msg, cloud);
+    std::shared_ptr<pcl::PointCloud<T>> cloud = std::make_shared<pcl::PointCloud<T>>();
+    pcl::fromROSMsg(*msg, *cloud);
+
+    // Save the PCL header for later publishing to nav2
+    pcl::PCLHeader header = cloud->header;
 
     // Transform cloud to fixed_frame_
     try
     {
       tf2_buffer_->canTransform(fixed_frame_, msg->header.frame_id, msg->header.stamp,
                                 tf2::durationFromSec(transform_timeout_));
-      if (!pcl_ros::transformPointCloud(fixed_frame_, cloud, cloud, *tf2_buffer_))
+      if (!pcl_ros::transformPointCloud(fixed_frame_, *cloud, *cloud, *tf2_buffer_))
       {
         // Error message gets printed inside transformPointCloud
         return;
@@ -698,27 +625,38 @@ private:
       return;
     }
 
-    RCLCPP_INFO(logger_, "Start process");
+    RCLCPP_INFO(logger_, "Setup filter");
     model_->setRobotPose(robot_pose.pose.position.x,
                          robot_pose.pose.position.y,
                          tf2::getYaw(robot_pose.pose.orientation));
     model_->clear();
+    RCLCPP_INFO(logger_, "Start radius filter");
+    model_->applyRadiusFilter(cloud);
+    RCLCPP_INFO(logger_, "Start ground filter");
     model_->addPoints(cloud);
-    RCLCPP_INFO(logger_, "End process");
+    RCLCPP_INFO(logger_, "End filtering");
 
     pcl::PointCloud<T> ground_cloud, obstacle_cloud;
-    model_->getGroundCloud(ground_cloud);
-    model_->getObstacleCloud(obstacle_cloud);
-
     sensor_msgs::msg::PointCloud2 cloud_msg;
+
+    // Get ground cloud, transform to robot_frame (for nav2), and publish
+    model_->getGroundCloud(ground_cloud);
+    ground_cloud.header.stamp = header.stamp;
+    ground_cloud.header.frame_id = fixed_frame_;
+    pcl_ros::transformPointCloud(robot_frame_, ground_cloud, ground_cloud, *tf2_buffer_);
     pcl::toROSMsg(ground_cloud, cloud_msg);
     cloud_msg.header.stamp = msg->header.stamp;
-    cloud_msg.header.frame_id = fixed_frame_;
+    cloud_msg.header.frame_id = robot_frame_;
     ground_pub_->publish(cloud_msg);
 
+    // Get obstacle cloud, transform to robot_frame (for nav2), and publish
+    model_->getObstacleCloud(obstacle_cloud);
+    obstacle_cloud.header.stamp = header.stamp;
+    obstacle_cloud.header.frame_id = fixed_frame_;
+    pcl_ros::transformPointCloud(robot_frame_, obstacle_cloud, obstacle_cloud, *tf2_buffer_);
     pcl::toROSMsg(obstacle_cloud, cloud_msg);
     cloud_msg.header.stamp = msg->header.stamp;
-    cloud_msg.header.frame_id = fixed_frame_;
+    cloud_msg.header.frame_id = robot_frame_;
     obstacle_pub_->publish(cloud_msg);
 
     if (debug_topics_)
@@ -731,12 +669,18 @@ private:
       color_msg.header.frame_id = fixed_frame_;
       colored_cell_pub_->publish(color_msg);
 
-      pcl::PointCloud<T> mean_cloud;
-      model_->getMeanCloud(mean_cloud);
-      pcl::toROSMsg(mean_cloud, cloud_msg);
+      pcl::PointCloud<T> elevation_cloud;
+      model_->getElevationCloud(elevation_cloud);
+      pcl::toROSMsg(elevation_cloud, cloud_msg);
       cloud_msg.header.stamp = msg->header.stamp;
       cloud_msg.header.frame_id = fixed_frame_;
-      mean_pub_->publish(cloud_msg);
+      elevation_pub_->publish(cloud_msg);
+
+      model_->getElevationCloud(elevation_cloud, true /* two_sigma */);
+      pcl::toROSMsg(elevation_cloud, cloud_msg);
+      cloud_msg.header.stamp = msg->header.stamp;
+      cloud_msg.header.frame_id = fixed_frame_;
+      two_sigma_elevation_pub_->publish(cloud_msg);
     }
   }
 
@@ -754,7 +698,8 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr colored_cell_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr mean_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr elevation_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr two_sigma_elevation_pub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;

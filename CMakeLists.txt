@@ -35,17 +35,6 @@ ament_target_dependencies(gps_to_cart
 )
 target_link_libraries(gps_to_cart proj "${cpp_typesupport_target}")
 
-add_executable(ground_filter src/ground_filter.cpp)
-ament_target_dependencies(ground_filter
-  angles
-  pcl_conversions
-  pcl_ros
-  rclcpp
-  sensor_msgs
-  tf2_geometry_msgs
-  tf2_ros
-)
-
 add_executable(rolling_ground_filter src/rolling_ground_filter.cpp)
 ament_target_dependencies(rolling_ground_filter
   angles
@@ -80,7 +69,6 @@ install(
 install(
   TARGETS
     gps_to_cart
-    ground_filter
     rolling_ground_filter
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

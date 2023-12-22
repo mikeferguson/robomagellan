@@ -56,13 +56,23 @@ struct RollingGridParams
   size_t min_points = 8;
 
   // Maximum thickness of ground surface
-  double planar_tolerance = 0.05;
+  double planar_tolerance = 0.1;
 
   // Maximum distance from vertical plane can be and still be ground
   // (default is 15 degrees)
   double vertical_tolerance = 0.2617;
 };
 
+/**
+ * @brief Implementation of a grid cell for tracking ground, finding obstacles.
+ *        Specifically tuned for Livox MID-360 where data gets quite sparse when
+ *        far from sensor.
+ *
+ * Usage is basically:
+ *  - clear() which removes old points, but keeps the ground plane information
+ *  - addPoint() for each set of points in cell
+ *  - compute()
+ */
 template <typename T>
 struct RollingGridCell
 {
@@ -75,6 +85,8 @@ struct RollingGridCell
     mean = Eigen::Vector3f::Zero();
     covariance = Eigen::Matrix3f::Zero();
     correlation = Eigen::Matrix3f::Zero();
+    normal = Eigen::Vector3f(0, 0, 1);
+    d = 0;
     valid = false;
   }
 
@@ -99,6 +111,8 @@ struct RollingGridCell
   {
     points->clear();
     obstacles->clear();
+    is_horizontal = false;
+    is_coplanar = false;
     is_ground = false;
   }
 
@@ -106,27 +120,116 @@ struct RollingGridCell
   {
     // Store point in cloud
     points->push_back(point);
-    // Update mean and correlation
-    Eigen::Vector3f p(point.x, point.y, point.z);
-    mean = (mean * n + p) / (n + 1);
-    for (size_t i = 0; i < 3; ++i)
-    {
-      for (size_t j = 0; j < 3; ++j)
-      {
-        correlation(i, j) = (correlation(i, j) * n + p(i) * p(j)) / (n + 1);
-      }
-    }
-    n += 1;
-    valid = false;
   }
 
-  bool compute()
+  /**
+   * @brief Update estimation of ground plane, filter obstacles.
+   */
+  void compute()
   {
-    if (valid || n < 3)
+    if (points->size() < params->min_points)
     {
+      if (valid)
+      {
+        // We already have a model of the ground plane to filter with
+        filterByPlane(normal, d);
+      }
+    }
+    else
+    {
+      // Extract best fit plane
+      valid |= filterByRANSAC();
+    }
+    // Update mean and correlation from remaining ground points
+    updateMeanAndCorrelation();
+  }
+
+  bool filterByRANSAC()
+  {
+    // Extract best fit plane
+    pcl::ModelCoefficients::Ptr coef(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    pcl::SACSegmentation<T> seg;
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(params->planar_tolerance);
+    seg.setInputCloud(points);
+    seg.segment(*inliers, *coef);
+
+    if (inliers->indices.empty())
+    {
+      // Reject this filtering
       return false;
     }
 
+    // Store the parameters for the plane
+    normal(0) = coef->values[0];
+    normal(1) = coef->values[1];
+    normal(2) = coef->values[2];
+    d = coef->values[3];
+
+    // Extract outliers into obstacles cloud
+    pcl::ExtractIndices<T> extract;
+    extract.setInputCloud(points);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*obstacles);
+
+    // And then remove outliers from the points cloud
+    extract.setNegative(false);
+    extract.filter(*points);
+    return true;
+  }
+
+  bool filterByPlane(Eigen::Vector3f normal, double d)
+  {
+    // Split points into ground/nonground based on planar fit
+    pcl::PointCloud<T> ground, nonground;
+    for (auto point : *points)
+    {
+      double v = point.x * normal(0) + point.y * normal(1) + point.z * normal(2) + d;
+      if (fabs(v) < params->planar_tolerance)
+      {
+        ground.push_back(point);
+      }
+      else
+      {
+        nonground.push_back(point);
+      }
+    }
+
+    if (ground.size() < nonground.size())
+    {
+      // Reject this filtering
+      return false;
+    }
+
+    // Accept filtering
+    *points = ground;
+    *obstacles += nonground;
+    return true;
+  }
+
+  void updateMeanAndCorrelation()
+  {
+    for (auto & point : *points)
+    {
+      Eigen::Vector3f p(point.x, point.y, point.z);
+      mean = (mean * n + p) / (n + 1);
+      for (size_t i = 0; i < 3; ++i)
+      {
+        for (size_t j = 0; j < 3; ++j)
+        {
+          correlation(i, j) = (correlation(i, j) * n + p(i) * p(j)) / (n + 1);
+        }
+      }
+      n += 1;
+    }
+    updateCovariance();
+  }
+
+  void updateCovariance()
+  {
     const double scale = n / (n - 1);
     for (size_t i = 0; i < 3; ++i)
     {
@@ -136,14 +239,18 @@ struct RollingGridCell
         covariance(j, i) = covariance(i, j);
       }
     }
-
-    valid = true;
-    return true;
   }
+
+  // Condition varibles
+  bool is_horizontal;
+  bool is_coplanar;
+  bool is_ground;
+
+  // Scratchpad
+  bool is_visited;
 
   // The points in the cell that may be part of ground plane
   std::shared_ptr<pcl::PointCloud<T>> points;
-  bool is_ground;
 
   // The points in this cell that are obstacles
   std::shared_ptr<pcl::PointCloud<T>> obstacles;
@@ -155,10 +262,14 @@ struct RollingGridCell
   // Technically this should be size_t - but for Eigen math, needs to be double
   double n;
 
-  // Features of the point cloud
+  // Features of point cloud, valid when n > 0
   Eigen::Vector3f mean;
   Eigen::Matrix3f covariance;
   Eigen::Matrix3f correlation;
+
+  // Features of point cloud, valid when valid=true
+  Eigen::Vector3f normal;
+  double d;
 
   // Parameters to be used for processing
   std::shared_ptr<RollingGridParams> params;
@@ -260,10 +371,91 @@ public:
       }
     }
 
+    // Queue of cells to processed - entry is index
+    std::queue<size_t> cell_queue;
+
     // Compute features in each cell
+    // First pass - classify as horizontal solely based on verticalness of normal
+    for (size_t i = 0; i < cells_.size(); ++i)
+    {
+      auto & cell = cells_[i];
+      cell.compute();
+      cell.is_horizontal = cell.valid && isHorizontal(cell);
+      if (cell.is_horizontal)
+      {
+        cell_queue.push(i);
+      }
+    }
+
+    // Second pass - widen horizontal classification using adjacent cells
+    while (!cell_queue.empty())
+    {
+      // Get index of horizontal cell
+      size_t i = cell_queue.front(); cell_queue.pop();
+
+      // Get the horizontal cell
+      auto & horiz_cell = cells_[i];
+      std::vector<size_t> adj_cell_indices = getAdjacent(i);
+      for (auto j : adj_cell_indices)
+      {
+        auto & adj_cell = cells_[j];
+        if (!adj_cell.is_horizontal)
+        {
+          if (isHorizontalToAdjacent(adj_cell, horiz_cell))
+          {
+            adj_cell.is_horizontal = true;
+            cell_queue.push(j);
+          }
+        }
+      }
+    }
+
+    // Third pass - start at center cells and work out
+    markAllUnvisited();
+    cell_queue.push(getIndex(x_cells_ / 2, y_cells_ / 2));
+    while (!cell_queue.empty())
+    {
+      // Get index of cell to examine
+      size_t i = cell_queue.front(); cell_queue.pop();
+
+      // Get cell information, mark visited
+      auto & cell = cells_[i];
+      if (cell.is_visited) continue;
+      cell.is_visited = true;
+
+      std::vector<size_t> adj_cell_indices = getAdjacent(i);
+
+      if (!cell.is_horizontal)
+      {
+        // See if cell mean can be explained by adjacent cell plane
+        for (auto j : adj_cell_indices)
+        {
+          auto & adj_cell = cells_[j];
+          if (!adj_cell.valid) continue;
+          if (!adj_cell.is_horizontal) continue;
+          if (cell.filterByPlane(adj_cell.normal, adj_cell.d))
+          {
+            cell.is_coplanar = true;
+            break;
+          }
+        }
+      }
+
+      for (auto j : adj_cell_indices)
+      {
+        auto & adj_cell = cells_[j];
+        if (!adj_cell.is_visited)
+        {
+          cell_queue.push(j);
+        }
+      }
+    }
+
+    // Classify cells as ground or not
     for (auto & cell : cells_)
     {
-      cell.compute();
+      // TODO: apply other criteria
+      cell.is_ground = (cell.is_horizontal); // || cell.is_coplanar);
     }
   }
 
@@ -343,29 +535,40 @@ public:
   }
 
 private:
+  void markAllUnvisited()
+  {
+    for (auto & cell : cells_)
+    {
+      cell.is_visited = false;
+    }
+  }
+
   size_t getIndex(size_t x, size_t y)
   {
     return (x * x_cells_) + y;
   }
 
-  std::vector<size_t> getAdjacent(RollingGridCell<T> & cell)
+  std::vector<size_t> getAdjacent(size_t index)
   {
     std::vector<size_t> adj;
-    if (cell.x > 0)
+    // Compute x, y from index
+    size_t x = index / x_cells_;
+    size_t y = index % x_cells_;
+    if (x > 0)
     {
-      adj.push_back(getIndex(cell.x - 1, cell.y));
+      adj.push_back(getIndex(x - 1, y));
     }
-    if (cell.y > 0)
+    if (y > 0)
     {
-      adj.push_back(getIndex(cell.x, cell.y - 1));
+      adj.push_back(getIndex(x, y - 1));
     }
-    if (cell.x < x_cells_ - 1)
+    if (x < x_cells_ - 1)
     {
-      adj.push_back(getIndex(cell.x + 1, cell.y));
+      adj.push_back(getIndex(x + 1, y));
     }
-    if (cell.y < y_cells_ - 1)
+    if (y < y_cells_ - 1)
     {
-      adj.push_back(getIndex(cell.x, cell.y + 1));
+      adj.push_back(getIndex(x, y + 1));
     }
     return adj;
   }
@@ -386,8 +589,8 @@ private:
   // @brief Determine if points in "cell" are horizontal enough to "adj"
   bool isHorizontalToAdjacent(RollingGridCell<T> & cell, RollingGridCell<T> & adj)
   {
-    if (!adj.features_valid) return false;
-    if (!adj.is_ground) return false;
+    if (!adj.valid || !cell.valid) return false;
+    if (!adj.is_horizontal) return false;
     float angle = acos(adj.normal.dot(cell.normal));
     return (angle < cell.params->vertical_tolerance);
   }

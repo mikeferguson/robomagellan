@@ -26,8 +26,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROBOMAGELLAN__ROLLING_GROUND_FILTER_HPP_
-#define ROBOMAGELLAN__ROLLING_GROUND_FILTER_HPP_
+#ifndef ROBOMAGELLAN__GROUND_FILTER_HPP_
+#define ROBOMAGELLAN__GROUND_FILTER_HPP_
 
 #include <cmath>
 #include <limits>
@@ -53,7 +53,7 @@ bool sortByZ(T & a, T & b)
   return a.z < b.z;
 }
 
-struct RollingGridParams
+struct GridParams
 {
   // Minimum number of points to build internal model
   size_t min_points = 8;
@@ -77,13 +77,13 @@ struct RollingGridParams
  *  - compute() which actually updates computed features
  */
 template <typename T>
-struct RollingGridCell
+struct GridCell
 {
-  RollingGridCell()
+  GridCell()
   {
     points = std::make_shared<pcl::PointCloud<T>>();
     obstacles = std::make_shared<pcl::PointCloud<T>>();
-    params = std::make_shared<RollingGridParams>();
+    params = std::make_shared<GridParams>();
     n = 0;
     mean = Eigen::Vector3f::Zero();
     correlation = Eigen::Matrix3f::Zero();
@@ -91,7 +91,7 @@ struct RollingGridCell
     covariance_valid = false;
   }
 
-  void operator=(const RollingGridCell& other)
+  void operator=(const GridCell& other)
   {
     if (this != &other)
     {
@@ -222,11 +222,11 @@ struct RollingGridCell
   bool covariance_valid;
 
   // Parameters to be used for processing
-  std::shared_ptr<RollingGridParams> params;
+  std::shared_ptr<GridParams> params;
 };
 
 template <typename T>
-class RollingGridModel
+class GridModel
 {
 public:
   /**
@@ -234,7 +234,7 @@ public:
    * @param cell_size Size of cells in x & y (meters).
    * @param grid_size Maximum distance cells span in x & y (meters).
    */
-  RollingGridModel(double cell_size, double grid_size)
+  GridModel(double cell_size, double grid_size)
   {
     // Store sizes
     cell_size_ = cell_size;
@@ -267,7 +267,7 @@ public:
     if (x_delta != 0 || y_delta != 0)
     {
       // Actually shift cells
-      std::vector<RollingGridCell<T>> scratch;
+      std::vector<GridCell<T>> scratch;
       scratch.resize(cells_.size());
       for (int i = 0; i < x_cells_; ++i)
       {
@@ -530,7 +530,7 @@ private:
     return adj;
   }
 
-  std::vector<RollingGridCell<T>> cells_;
+  std::vector<GridCell<T>> cells_;
   // Size of the grid
   double cell_size_;
   size_t x_cells_, y_cells_;
@@ -539,10 +539,10 @@ private:
 };
 
 template <typename T>
-class RollingGroundFilter : public rclcpp::Node
+class GroundFilter : public rclcpp::Node
 {
 public:
-  RollingGroundFilter()
+  GroundFilter()
   : rclcpp::Node("ground_filter"),
     logger_(rclcpp::get_logger("ground_filter"))
   {
@@ -551,7 +551,7 @@ public:
 
     double cell_size = this->declare_parameter<double>("cell_size", 0.25);
     double grid_size = this->declare_parameter<double>("grid_size", 16.0);
-    model_ = std::make_unique<RollingGridModel<T>>(cell_size, grid_size);
+    model_ = std::make_unique<GridModel<T>>(cell_size, grid_size);
 
     robot_frame_ = this->declare_parameter<std::string>("robot_frame", "base_link");
     fixed_frame_ = this->declare_parameter<std::string>("fixed_frame", "odom");
@@ -577,7 +577,7 @@ public:
 
     // Subscribe the incoming point cloud message
     cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-                   "cloud", qos, std::bind(&RollingGroundFilter<T>::cloudCb,
+                   "cloud", qos, std::bind(&GroundFilter<T>::cloudCb,
                                            this, std::placeholders::_1));
   }
 
@@ -685,7 +685,7 @@ private:
   }
 
   // Organization
-  std::unique_ptr<RollingGridModel<T>> model_;
+  std::unique_ptr<GridModel<T>> model_;
 
   // Parameters
   bool debug_topics_;
@@ -705,4 +705,4 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 };
 
-#endif  // ROBOMAGELLAN__ROLLING_GROUND_FILTER_HPP_
+#endif  // ROBOMAGELLAN__GROUND_FILTER_HPP_

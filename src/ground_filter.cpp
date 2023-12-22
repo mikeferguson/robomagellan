@@ -26,14 +26,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <robomagellan/rolling_ground_filter.hpp>
+#include <robomagellan/ground_filter.hpp>
 
-using RollingGroundFilterT = RollingGroundFilter<pcl::PointXYZI>;
+using GroundFilterT = GroundFilter<pcl::PointXYZI>;
 
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<RollingGroundFilterT>());
+  rclcpp::spin(std::make_shared<GroundFilterT>());
   rclcpp::shutdown();
   return 0;
 }

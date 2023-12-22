@@ -72,7 +72,11 @@ struct RollingGridCell
     obstacles = std::make_shared<pcl::PointCloud<T>>();
     params = std::make_shared<RollingGridParams>();
     cycles = 0;
-    reset();
+    n = 0;
+    mean = Eigen::Vector3f::Zero();
+    covariance = Eigen::Matrix3f::Zero();
+    correlation = Eigen::Matrix3f::Zero();
+    valid = false;
   }
 
   void operator=(const RollingGridCell& other)
@@ -98,17 +102,6 @@ struct RollingGridCell
     points->clear();
     obstacles->clear();
     is_ground = false;
-  }
-
-  // @brief Called when a cell wraps around
-  void reset()
-  {
-    clear();
-    n = 0;
-    mean = Eigen::Vector3f::Zero();
-    covariance = Eigen::Matrix3f::Zero();
-    correlation = Eigen::Matrix3f::Zero();
-    valid = false;
   }
 
   void addPoint(T point)

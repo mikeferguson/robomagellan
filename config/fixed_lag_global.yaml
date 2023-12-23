@@ -1,9 +1,10 @@
 fixed_lag_global:
   ros__parameters:
     # Fixed-lag smoother configuration
-    optimization_frequency: 20.0
+    optimization_frequency: 5.0
     transaction_timeout: 0.01
-    lag_duration: 0.5
+    # See discussion in https://github.com/locusrobotics/fuse/issues/262
+    lag_duration: 0.2
 
     motion_models:
       unicycle_motion_model:

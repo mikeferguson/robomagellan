@@ -67,12 +67,14 @@ ros2 topic pub -r 10 /gps/fix sensor_msgs/msg/NavSatFix "{header: {frame_id: "ma
 
 ## Hardware Details (gen2)
 
- * Computer: Intel NUC, 19V @ 60W.
- * Switch: TP-Link Litewave 5.  5V @ 3.7W.
+ * Head Box:
+   * Enclosure: WQ-48-03
+   * Computer: Intel NUC, 19V @ 60W.
+   * Switch: TP-Link Litewave 5.  5V @ 3.7W.
+   * GPS: Sparkfun GPS-RTK-SMA w/ UBlox ZED-F9P. Comms over USB.
+   * IMU: UM7. Comms over USB.
+   * Wifi Access Point: GL-AR300M16.
  * Lidar: Livox MID-360, 12V (9-27V) @ 6.5W. Comms over Ethernet.
- * Camera: TBD.
- * GPS: Sparkfun GPS-RTK-SMA w/ UBlox ZED-F9P. Comms over USB.
- * IMU: UM7. Comms over USB.
+ * Camera: Luxonis OAK-1 Lite.
  * Custom integrated power and control board. Comms over Ethernet.
- * Wifi Access Point: GL-AR300M16.
  * Motor: Hobbywing 30404310 - 13.5T Sensored. KV: 2850. 0.0289 Ohm. 2-3S, 2 Pole. Max Power: 180W @ 50A

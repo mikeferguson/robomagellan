@@ -61,12 +61,8 @@ def generate_launch_description():
         # Drivers
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
-                PathJoinSubstitution([
-                    get_package_share_directory('robomagellan'),
-                    'launch',
-                    LaunchConfiguration('gen'),
-                    'drivers.launch.py']
-                )
+                PathJoinSubstitution([launch_file('drivers.launch.py')]),
+                launch_arguments={'gen': LaunchConfiguration('gen')}.items()
             ),
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),

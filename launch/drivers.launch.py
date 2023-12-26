@@ -37,46 +37,33 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
 import xacro
 
 def generate_launch_description():
-    # Load the URDF into a parameter
-    bringup_dir = get_package_share_directory('robomagellan')
-    xacro_path = os.path.join(bringup_dir, 'urdf', 'robot.urdf.xacro')
-    urdf = xacro.process(xacro_path)
-
-    # Load the driver config
-    driver_config = os.path.join(
-        get_package_share_directory('robomagellan'),
-        'config', 'etherbotix.yaml'
-    )
-
     livox_config = os.path.join(
         get_package_share_directory('robomagellan'),
         'config', 'mid360.json'
     )
 
     return LaunchDescription([
-        # Robot state publisher
-        Node(
-            name='robot_state_publisher',
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            parameters=[{'robot_description': urdf}],
-        ),
+        DeclareLaunchArgument('gen', default_value='gen1'),
 
-        # Etherbotix drivers
-        Node(
-            name='etherbotix',
-            package='etherbotix',
-            executable='etherbotix_driver',
-            parameters=[{'robot_description': urdf},
-                        driver_config],
-            remappings=[('odom', 'base_controller/odom')],
-            output='screen',
-        ),
+        # Load the actual drivers for the appropriate robot
+        IncludeLaunchDescription(
+             PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    get_package_share_directory('robomagellan'),
+                    'launch',
+                    LaunchConfiguration('gen'),
+                    '_drivers.launch.py']
+                )
+             ),
+         ),
 
         # GPS publisher
         Node(

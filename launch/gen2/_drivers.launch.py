@@ -43,15 +43,10 @@ import xacro
 
 def generate_launch_description():
     # Load the URDF into a parameter
-    # TODO: update URDF to proper one
+    # TODO: update URDF to proper one for gen2
     bringup_dir = get_package_share_directory('robomagellan')
     xacro_path = os.path.join(bringup_dir, 'urdf', 'robot.urdf.xacro')
     urdf = xacro.process(xacro_path)
-
-    livox_config = os.path.join(
-        get_package_share_directory('robomagellan'),
-        'config', 'mid360.json'
-    )
 
     return LaunchDescription([
         # Robot state publisher
@@ -63,65 +58,4 @@ def generate_launch_description():
         ),
 
         # TODO: Add power/control board drivers
-
-        # GPS publisher
-        Node(
-            name='nmea_serial_driver',
-            package='nmea_navsat_driver',
-            executable='nmea_serial_driver',
-            parameters=[{'baud': 9600,
-                         'frame_id': 'base_link',
-                         'port': '/dev/ttyACM0'}],
-            remappings=[('fix', 'gps/fix'),
-                        ('heading', 'gps/heading'),
-                        ('vel', 'gps/vel')],
-        ),
-
-        # UM7 IMU
-        Node(
-            name='um7_driver',
-            package='um7',
-            executable='um7_node',
-            parameters=[{'mag_updates': False,
-                         'tf_ned_to_enu': False,
-                         'update_rate': 100}],
-            # This could be cleaned up when wildcards are implemented
-            #   see https://github.com/ros2/rcl/issues/232
-            remappings=[('imu/data', 'imu_um7/data'),
-                        ('imu/mag', 'imu_um7/mag'),
-                        ('imu/rpy', 'imu_um7/rpy'),
-                        ('imu/temperature', 'imu_um7/temperature')]
-        ),
-
-        # Livox MID-360 Laser
-        Node(
-            name='livox',
-            package='livox_ros_driver2',
-            executable='livox_ros_driver2_node',
-            output='screen',
-            parameters=[{'user_config_path': livox_config,
-                         'frame_id': 'livox_frame'}]
-        ),
-
-        # TODO: add mux between nav and joystick
-        Node(
-            name='joy',
-            package='joy',
-            executable='joy_node',
-            parameters=[{'autorepeat_rate': 5.0}, ],
-        ),
-
-        # Teleop
-        Node(
-            name='teleop',
-            package='teleop_twist_joy',
-            executable='teleop_node',
-            parameters=[{'enable_button': 4,
-                         'axis_linear.x': 4,
-                         'scale_linear.x': 1.0,
-                         'axis_angular.yaw': 0,
-                         'scale_angular.yaw': 3.0} ],
-            remappings=[('cmd_vel', 'base_controller/command')],
-            output='screen',
-        ),
     ])

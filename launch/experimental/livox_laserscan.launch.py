@@ -50,7 +50,7 @@ def generate_launch_description():
             parameters=[{'min_height': 0.1,
                          'max_height': 0.3,
                          'target_frame': 'base_link',
-                         'use_sim_time': True}],
+                         'use_sim_time': LaunchConfiguration('use_sim_time')}],
             package='pointcloud_to_laserscan',
             executable='pointcloud_to_laserscan_node',
             name='pointcloud_to_laserscan_node',

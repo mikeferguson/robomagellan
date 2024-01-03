@@ -46,7 +46,15 @@ sensor for obstacle avoidance.
 ## Event Configuration
 
  * Edit line 34 of fixed_lag_global.yaml to set the initial heading of the robot
- * TODO: setup breadcrumbs and goal poses
+ * Setup breadcrumbs.yaml with the following format. NOTE: altitudes can be zero,
+   since they are pretty much ignored at this time.
+   ```yaml
+    - [lat1, lon1, alt1, heading1]
+    - [lat2, lon2, alt2, heading2]
+    - [lat3, lon3, alt3, heading3]
+    ...
+    - [latN, lonN, altN, headingN]
+   ```
 
 ## Recording Bagfiles
 

@@ -16,7 +16,7 @@ etherbotix:
       publish_tf: false
     # Using external UM-7 IMU
     imu: false
-    # Servo: map millisecodns to radians
+    # Servo: convert milliseconds to radians
     motor1:
       joint_name: "steering_joint"
       ticks_per_radian: 318.47

@@ -38,15 +38,23 @@ etherbotix:
       mimic_joint: "rf_wheel_joint"
       controlled_joint: "rr_wheel_joint"
       autostart: true
-    # 64cpr*50:1
-    ticks_per_radian: 509.3
     # Using external UM-7 IMU
     imu: false
-    # Tuned on April 17, 2020
-    motor_kp: 10.0
-    motor_kd: 0.0
-    motor_ki: 1.5
-    motor_kw: 950.0
-    # Name for joints
-    l_motor_name: "lf_wheel_joint"
-    r_motor_name: "rf_wheel_joint"
+    motor1:
+      joint_name: "lf_wheel_joint"
+      # 64cpr*50:1
+      ticks_per_radian: 509.3
+      # Tuned on April 17, 2020
+      kp: 10.0
+      kd: 0.0
+      ki: 1.5
+      kw: 950.0
+    motor2:
+      joint_name: "rf_wheel_joint"
+      # 64cpr*50:1
+      ticks_per_radian: 509.3
+      # Tuned on April 17, 2020
+      kp: 10.0
+      kd: 0.0
+      ki: 1.5
+      kw: 950.0

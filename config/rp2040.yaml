@@ -1,0 +1,32 @@
+etherbotix:
+  ros__parameters:
+    default_controllers:
+      - "base_controller"
+    base_controller:
+      type: "robot_controllers/AckermannController"
+      max_velocity_x: 0.5
+      max_acceleration_x: 1.0
+      # autostart to get odom
+      autostart: true
+      # Linear twist is well defined, but angular is less good
+      twist_covariance_x: 0.1
+      twist_covariance_y: 0.1
+      twist_covariance_r: 1.0
+      # TF will be published by fuse
+      publish_tf: false
+    # Using external UM-7 IMU
+    imu: false
+    # Servo: map millisecodns to radians
+    motor1:
+      joint_name: "steering_joint"
+      ticks_per_radian: 318.47
+      ticks_offset: 1500
+    # Drive: map electrical velocity to drive wheel velocity
+    #        Motor is geared 19T pinion to 55T driveline gear
+    #        Diff is 12T into 44T gear
+    #        VESC returns 6 ticks per electrical revolution
+    #        Motor has two poles
+    motor2:
+      joint_name: "drive_joint"
+      ticks_per_radian_r: 0.0493
+      ticks_offset_r: 0

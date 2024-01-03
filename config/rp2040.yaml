@@ -23,10 +23,9 @@ etherbotix:
       ticks_offset: 1500
     # Drive: map electrical velocity to drive wheel velocity
     #        Motor is geared 19T pinion to 55T driveline gear
-    #        Diff is 12T into 44T gear
-    #        VESC returns 6 ticks per electrical revolution
-    #        Motor has two poles
+    #        Diff is 13T into 41T gear
+    #        VESC returns 6 ticks per motor revolution (3 * 2 poles)
     motor2:
       joint_name: "drive_joint"
-      ticks_per_radian_r: 0.0493
+      ticks_per_radian: 8.718082510256453
       ticks_offset_r: 0

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2020-2023, Michael Ferguson
+# Copyright (c) 2020-2024, Michael Ferguson
 # All rights reserved.
 #
 # Software License Agreement (BSD License 2.0)
@@ -61,9 +61,9 @@ def generate_launch_description():
         # Drivers
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
-                PathJoinSubstitution([launch_file('drivers.launch.py')]),
-                launch_arguments={'gen': LaunchConfiguration('gen')}.items()
+                PathJoinSubstitution([launch_file('drivers.launch.py')])
             ),
+            launch_arguments={'gen': LaunchConfiguration('gen')}.items(),
             condition=UnlessCondition(LaunchConfiguration('offline')),
         ),
 
@@ -94,7 +94,11 @@ def generate_launch_description():
             launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
         ),
 
-        # TODO: add navigation, yeah, that is totally one line
+        # Navigation
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([launch_file('compute/nav2.launch.py')]),
+            launch_arguments={'use_sim_time': LaunchConfiguration('offline')}.items()
+        ),
 
     ])
 

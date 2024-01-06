@@ -23,9 +23,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# Dependencies to install:
+#  python3 -m pip install tensorflow gpflow
+
 import time
 import numpy as np
-from math import sin, cos
+from math import atan2, cos, sin
 
 # Tensorflow and friends
 import tensorflow as tf
@@ -41,6 +44,8 @@ from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 
 # TODO: sort out issues with using float32 in tensorflow
+# TODO: remove high variance (non obstacle) points from output point clouds
+# TODO: subscribe to actual goal, setup TF transformer for goal
 
 """ @brief: class to construct a 2D Sparse GP using gpflow. """
 class SGP2D:
@@ -114,14 +119,14 @@ class SparseGaussianProcessGoalFinder(Node):
         # Sampling surface characteristics
         self.declare_parameter('surface_radius', 5)
         self.surface_radius = self.get_parameter('surface_radius').value
-        # Surface will be sampled from -pi to pi, at this resolution
+        # Theta angles will be sampled from min to max, at this resolution
         self.declare_parameter('surface_theta_resolution', 0.05)
         self.declare_parameter('surface_theta_min', -np.pi * (2 / 3))
         self.declare_parameter('surface_theta_max', np.pi * (2 / 3))
-        # Surface will be sampled from min to max, at this resolution
-        self.declare_parameter('surface_altitude_min', -0.1)
-        self.declare_parameter('surface_altitude_max', 0.35)
-        self.declare_parameter('surface_altitude_resolution', 0.025)
+        # Alpha angles will be sampled from min to max, at this resolution
+        self.declare_parameter('surface_alpha_min', -0.1)
+        self.declare_parameter('surface_alpha_max', 0.35)
+        self.declare_parameter('surface_alpha_resolution', 0.025)
         self.setup_sample_grid()
 
         # Scoring of goals
@@ -180,7 +185,6 @@ class SparseGaussianProcessGoalFinder(Node):
         self.update_variance_threshold()
         frontiers = self.compute_frontiers()
         best_frontier = self.score_frontiers(frontiers)
-        print(best_frontier)
 
         # Publish best frontier
         ps = PoseStamped()
@@ -257,6 +261,16 @@ class SparseGaussianProcessGoalFinder(Node):
                                                cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
 
+        # Frontier search works relatively well in confined spaces but
+        # leads to erratic behavior when in more wide open spaces.
+        # Add an additional "frontier" that is a beeline to the goal,
+        # if said frontier falls within an existing frontier
+        goal_theta = atan2(self.goal_y, self.goal_x)
+        goal_alpha = np.pi / 2.0
+        # Convert alpha/theta into cx/cy
+        goal_cx = int(((self.grid_thetas - goal_theta)**2).argmin(axis=0))
+        goal_cy = int(((self.grid_alphas - goal_alpha)**2).argmin(axis=0))
+
         frontier_centers = []
         frontier_areas = []
         for i in contours:
@@ -267,8 +281,10 @@ class SparseGaussianProcessGoalFinder(Node):
                 # Convert centers into possible goals
                 cx = int(cx / scale_factor)
                 cy = int(cy / scale_factor)
-                frontier_centers.append([self.grid_thetas[cx], self.grid_alts[cy]])
+                frontier_centers.append([self.grid_thetas[cx], self.grid_alphas[cy]])
                 frontier_areas.append(cv2.contourArea(i))
+                if cv2.pointPolygonTest(i, (goal_cx, goal_cy), False):
+                    frontier_centers.append([goal_theta, goal_alpha])
 
         return np.array(frontier_centers).reshape(-1, 2)
 
@@ -302,15 +318,15 @@ class SparseGaussianProcessGoalFinder(Node):
         theta_max = self.get_parameter('surface_theta_max').value
         self.grid_thetas = np.arange(theta_min, theta_max, theta_res, dtype='float64')
 
-        alt_res = self.get_parameter('surface_altitude_resolution').value
-        alt_min = self.get_parameter('surface_altitude_min').value
-        alt_max = self.get_parameter('surface_altitude_max').value
-        self.grid_alts = np.arange(np.pi / 2 - alt_max, np.pi / 2 - alt_min, alt_res,
-                                   dtype='float64')
+        alpha_res = self.get_parameter('surface_alpha_resolution').value
+        alpha_min = self.get_parameter('surface_alpha_min').value
+        alpha_max = self.get_parameter('surface_alpha_max').value
+        self.grid_alphas = np.arange(np.pi / 2 - alpha_max, np.pi / 2 - alpha_min, alpha_res,
+                                     dtype='float64')
 
-        self.sample_grid = np.array(np.meshgrid(self.grid_thetas, self.grid_alts)).T.reshape(-1, 2)
+        self.sample_grid = np.array(np.meshgrid(self.grid_thetas, self.grid_alphas)).T.reshape(-1, 2)
         self.sample_grid_w = np.shape(self.grid_thetas)[0]
-        self.sample_grid_h = np.shape(self.grid_alts)[0]
+        self.sample_grid_h = np.shape(self.grid_alphas)[0]
 
     """ @brief Used for publishing results/visualization. """
     def convert_spherical_2_cartesian(self, theta, alpha, dist):
@@ -331,7 +347,7 @@ class SparseGaussianProcessGoalFinder(Node):
                         self.sample_grid.T[:][1].reshape(-1, 1),
                         rds)
             intensity = np.array(self.grid_rds,
-                                dtype='float32').reshape(-1, 1)
+                                 dtype='float32').reshape(-1, 1)
             surface_pc = np.column_stack((x, y, z, intensity))
             surface_pc2 = point_cloud2.create_cloud(self.header, self.fields, surface_pc)
             self.surface_mean_pub.publish(surface_pc2)
@@ -346,7 +362,7 @@ class SparseGaussianProcessGoalFinder(Node):
                         self.sample_grid.T[:][1].reshape(-1, 1),
                         rds)
             intensity = np.array(self.grid_var,
-                                dtype='float32').reshape(-1, 1)
+                                 dtype='float32').reshape(-1, 1)
             surface_pc = np.column_stack((x, y, z, intensity))
             surface_pc2 = point_cloud2.create_cloud(self.header, self.fields, surface_pc)
             self.surface_var_pub.publish(surface_pc2)
@@ -359,7 +375,7 @@ class SparseGaussianProcessGoalFinder(Node):
                         self.sample_grid.T[:][1].reshape(-1, 1),
                         self.grid_rds)
             intensity = np.array(self.grid_rds,
-                                dtype='float32').reshape(-1, 1)
+                                 dtype='float32').reshape(-1, 1)
             surface_pc = np.column_stack((x, y, z, intensity))
             surface_pc2 = point_cloud2.create_cloud(self.header, self.fields, surface_pc)
             self.surface_pub.publish(surface_pc2)

@@ -25,6 +25,7 @@
 
 import time
 import numpy as np
+from math import sin, cos
 
 # Tensorflow and friends
 import tensorflow as tf
@@ -32,6 +33,7 @@ import gpflow
 
 # ROS2
 import cv2
+from geometry_msgs.msg import PoseStamped
 import rclpy
 from rclpy.node import Node
 import ros2_numpy
@@ -122,9 +124,16 @@ class SparseGaussianProcessGoalFinder(Node):
         self.declare_parameter('surface_altitude_resolution', 0.025)
         self.setup_sample_grid()
 
+        # Scoring of goals
+        self.declare_parameter('k_dist', 5)
+        self.declare_parameter('k_heading', 4)
+        self.k_dist = self.get_parameter('k_dist').value
+        self.k_heading = self.get_parameter('k_heading').value
+
         self.declare_parameter('visualization_radius', 5.0)
         self.viz_radius = self.get_parameter('visualization_radius').value
 
+        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 1)
         self.surface_pub = self.create_publisher(PointCloud2, 'surface_viz', 1)
         self.surface_mean_pub = self.create_publisher(PointCloud2, 'surface_mean', 1)
         self.surface_var_pub = self.create_publisher(PointCloud2, 'surface_var', 1)
@@ -162,12 +171,25 @@ class SparseGaussianProcessGoalFinder(Node):
         self.grid_rds = self.surface_radius - self.grid_mean
         print("Sample time: ", time.time() - start)
 
-        self.update_variance_threshold()
-        self.compute_frontiers()
+        # TODO: fill in with actual goal from a ROS topic/action
+        #       transform the goals into the local frame at each step
+        self.goal_x = 8.0
+        self.goal_y = 0.0
 
-        # TODO: actually use data
-        #self.gp_nav_pkup_nav_pt()
-        #self.gp_nav_xypts_actul_pcl()
+        # Compute frontiers
+        self.update_variance_threshold()
+        frontiers = self.compute_frontiers()
+        best_frontier = self.score_frontiers(frontiers)
+        print(best_frontier)
+
+        # Publish best frontier
+        ps = PoseStamped()
+        ps.header = msg.header
+        ps.pose.position.x = best_frontier[0]
+        ps.pose.position.y = best_frontier[1]
+        ps.pose.orientation.z = sin(best_frontier[2] / 2.0)
+        ps.pose.orientation.w = cos(best_frontier[2] / 2.0)
+        self.goal_pub.publish(ps)
 
         # (Lazy) publish various debugging topics
         self.publish_surface_viz()
@@ -248,8 +270,30 @@ class SparseGaussianProcessGoalFinder(Node):
                 frontier_centers.append([self.grid_thetas[cx], self.grid_alts[cy]])
                 frontier_areas.append(cv2.contourArea(i))
 
-        self.frontier_centers = np.array(frontier_centers).reshape(-1, 2)
-        print(self.frontier_centers)
+        return np.array(frontier_centers).reshape(-1, 2)
+
+    def score_frontiers(self, frontiers):
+        num_frontiers = np.shape(frontiers)[0]
+        gx = self.goal_x
+        gy = self.goal_y
+
+        # Convert frontiers from theta/alpha to x/y
+        rds = np.ones(num_frontiers, dtype='float32').reshape(-1, 1)
+        rds *= self.surface_radius
+        x, y, z = self.convert_spherical_2_cartesian(
+                    frontiers.T[0].reshape(-1, 1),
+                    frontiers.T[1].reshape(-1, 1),
+                    rds)
+        xy = np.hstack((x, y))
+
+        # Determine cost based on distance to goal + change in heading
+        cost = self.k_dist * np.sqrt((gx - xy.T[0])**2 + (gy - xy.T[1])**2) + \
+               self.k_heading * (frontiers.T[0]**2)
+        # Find lowest cost goal
+        index = cost.argmin(axis=0)
+
+        # Return the goal in local x,y,yaw
+        return [float(x) for x in [xy[index][0], xy[index][1], frontiers[index][0]]]
 
     """ @brief Configure grid used to reconstruct sampling surface. """
     def setup_sample_grid(self):

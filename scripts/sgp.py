@@ -23,8 +23,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# This is a heavily modified version of https://github.com/IhabMohamed/GP-MPPI
+#  * Port to ROS2
+#  * Add ROS parameters for nearly everything
+#  * Default theta range is less than 360 degrees.
+#  * Frontier search changes:
+#    * Does not implement wrapping  of the frontier image since I'm not using
+#      360 degree view of the world.
+#    * Add a fake frontier center that is beeline to goal, if that
+#      point is within an existing frontier contour
+#  * Subscribes to a goal, rather than having it hard coded via parameter
+
 # Dependencies to install:
 #  python3 -m pip install tensorflow gpflow
+#  add https://github.com/Box-Robotics/ros2_numpy to workspace
 
 import time
 import numpy as np
@@ -38,14 +50,19 @@ import gpflow
 import cv2
 from geometry_msgs.msg import PoseStamped
 import rclpy
+from rclpy.duration import Duration
+from rclpy.time import Time
 from rclpy.node import Node
 import ros2_numpy
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
+import tf2_geometry_msgs
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
 
 # TODO: sort out issues with using float32 in tensorflow
 # TODO: remove high variance (non obstacle) points from output point clouds
-# TODO: subscribe to actual goal, setup TF transformer for goal
 
 """ @brief: class to construct a 2D Sparse GP using gpflow. """
 class SGP2D:
@@ -102,6 +119,10 @@ class SparseGaussianProcessGoalFinder(Node):
     def __init__(self):
         super().__init__('sgp_goal_finder')
 
+        # Setup TF2 listener
+        self.buffer = Buffer()
+        self.listener = TransformListener(self.buffer, self)
+
         # Downsampling will divide number of points by this ratio
         self.declare_parameter('downsampling_ratio', 3)
         self.pc_downsample = self.get_parameter('downsampling_ratio').value
@@ -138,12 +159,24 @@ class SparseGaussianProcessGoalFinder(Node):
         self.declare_parameter('visualization_radius', 5.0)
         self.viz_radius = self.get_parameter('visualization_radius').value
 
-        self.goal_pub = self.create_publisher(PoseStamped, 'goal_pose', 1)
+        # Goal
+        self.goal = None
+
+        self.goal_pub = self.create_publisher(PoseStamped, 'global_goal', 1)
+        self.local_goal_pub = self.create_publisher(PoseStamped, 'local_goal', 1)
         self.surface_pub = self.create_publisher(PointCloud2, 'surface_viz', 1)
         self.surface_mean_pub = self.create_publisher(PointCloud2, 'surface_mean', 1)
         self.surface_var_pub = self.create_publisher(PointCloud2, 'surface_var', 1)
+        self.goal_sub = self.create_subscription(PoseStamped, 'goal', self.goal_cb, 1)
         self.cloud_sub = self.create_subscription(PointCloud2, 'spherical_cloud',
                                                   self.cloud_cb, 1)
+
+    def goal_cb(self, msg):
+        if msg.header.frame_id == "":
+            # Cancel the previous goal
+            self.goal = None
+        else:
+            self.goal = msg
 
     def cloud_cb(self, msg):
         self.header = msg.header
@@ -176,24 +209,32 @@ class SparseGaussianProcessGoalFinder(Node):
         self.grid_rds = self.surface_radius - self.grid_mean
         print("Sample time: ", time.time() - start)
 
-        # TODO: fill in with actual goal from a ROS topic/action
-        #       transform the goals into the local frame at each step
-        self.goal_x = 8.0
-        self.goal_y = 0.0
+        # Transform goal to robot centric frame and find best frontier
+        if not self.goal is None:
+            # Only care about latest transform
+            self.goal.header.stamp = Time().to_msg()
+            self.goal_pub.publish(self.goal)
+            # Now transform to local frame
+            try:
+                goal = self.buffer.transform(self.goal, msg.header.frame_id)
+                self.goal_x = goal.pose.position.x
+                self.goal_y = goal.pose.position.y
 
-        # Compute frontiers
-        self.update_variance_threshold()
-        frontiers = self.compute_frontiers()
-        best_frontier = self.score_frontiers(frontiers)
+                # Compute frontiers
+                self.update_variance_threshold()
+                frontiers = self.compute_frontiers()
+                best_frontier = self.score_frontiers(frontiers)
 
-        # Publish best frontier
-        ps = PoseStamped()
-        ps.header = msg.header
-        ps.pose.position.x = best_frontier[0]
-        ps.pose.position.y = best_frontier[1]
-        ps.pose.orientation.z = sin(best_frontier[2] / 2.0)
-        ps.pose.orientation.w = cos(best_frontier[2] / 2.0)
-        self.goal_pub.publish(ps)
+                # Publish best frontier
+                ps = PoseStamped()
+                ps.header = msg.header
+                ps.pose.position.x = best_frontier[0]
+                ps.pose.position.y = best_frontier[1]
+                ps.pose.orientation.z = sin(best_frontier[2] / 2.0)
+                ps.pose.orientation.w = cos(best_frontier[2] / 2.0)
+                self.local_goal_pub.publish(ps)
+            except (LookupException, ConnectivityException, ExtrapolationException):
+                self.get_logger().warn('Unable to transform goal to robot frame')
 
         # (Lazy) publish various debugging topics
         self.publish_surface_viz()
@@ -230,14 +271,13 @@ class SparseGaussianProcessGoalFinder(Node):
         self.sgp.select_trainable_param()
         self.sgp.minimize_loss()
 
+    """ @brief Compute the variance distribution threshold from statistics. """
     def update_variance_threshold(self):
-        # Compute variance distribution statistics
         sgp_var_mean = np.mean(self.grid_var)
         sgp_var_var = np.var(self.grid_var)
         self.var_thresh = 0.1 * (sgp_var_mean - 3 * sgp_var_var)
-        print("Variance distribution mean and variance: ", sgp_var_mean, sgp_var_var)
-        print("Variance threshold: ", self.var_thresh)
 
+    """ @brief Compute a set of frontiers. """
     def compute_frontiers(self):
         # Normalize variance
         normalized_var = self.grid_var / np.linalg.norm(self.grid_var)
@@ -288,6 +328,7 @@ class SparseGaussianProcessGoalFinder(Node):
 
         return np.array(frontier_centers).reshape(-1, 2)
 
+    """ @brief Score the frontiers based on distance to goal and change in heading. """
     def score_frontiers(self, frontiers):
         num_frontiers = np.shape(frontiers)[0]
         gx = self.goal_x

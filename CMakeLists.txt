@@ -46,6 +46,15 @@ ament_target_dependencies(ground_filter
   tf2_ros
 )
 
+add_executable(spherical_projector src/spherical_projector.cpp)
+ament_target_dependencies(spherical_projector
+  pcl_conversions
+  pcl_ros
+  rclcpp
+  sensor_msgs
+  tf2_ros
+)
+
 install(
   DIRECTORY config
   DESTINATION share/${PROJECT_NAME}/
@@ -70,6 +79,7 @@ install(
   TARGETS
     gps_to_cart
     ground_filter
+    spherical_projector
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
